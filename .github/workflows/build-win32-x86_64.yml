@@ -77,7 +77,7 @@ jobs:
       - if: ${{ inputs.build-cli == true }}
         run: echo "SPC_BUILD_CLI=--build-cli" >> $env:GITHUB_ENV
       - if: ${{ inputs.build-micro == true }}
-        run: echo "SPC_BUILD_MICRO=--build-micro --enable-micro-win32=yes" >> $env:GITHUB_ENV
+        run: echo "SPC_BUILD_MICRO=--build-micro --enable-micro-win32" >> $env:GITHUB_ENV
 
       - run: ./bin/spc doctor
 
