@@ -25,6 +25,9 @@ on:
         description: extensions to compile (comma separated)
         required: true
         type: string
+      phpini:
+        description: configure phpini 
+        type: string
       prefer-pre-built:
         description: prefer pre-built binaries (reduce build time)
         type: boolean
@@ -78,7 +81,7 @@ jobs:
         run: echo "SPC_BUILD_CLI=--build-cli" >> $env:GITHUB_ENV
       - if: ${{ inputs.build-micro == true }}
         run: echo "SPC_BUILD_MICRO=--build-micro" >> $env:GITHUB_ENV
-
+      
       - run: ./bin/spc doctor
 
       # If there's no dependencies cache, fetch sources, with or without debug
@@ -86,7 +89,7 @@ jobs:
         run: ./bin/spc download --with-php="${{ inputs.version }}" --for-extensions="${{ inputs.extensions }}" ${{ env.SPC_BUILD_DEBUG }} ${{ env.SPC_PRE_BUILT }}
 
       # Run build command
-      - run: ./bin/spc build "${{ inputs.extensions }}" ${{ env.SPC_BUILD_DEBUG }} ${{ env.SPC_BUILD_CLI }} ${{ env.SPC_BUILD_MICRO }} ${{ env.SPC_BUILD_FPM }}
+      - run: ./bin/spc build "${{ inputs.extensions }}" ${{ env.SPC_BUILD_DEBUG }} ${{ env.SPC_BUILD_CLI }} ${{ env.SPC_BUILD_MICRO }} ${{ env.SPC_BUILD_FPM }} ${{ inputs.phpini }}
 
       # Upload cli executable
       - if: ${{ inputs.build-cli == true }}
