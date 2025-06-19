@@ -36,6 +36,9 @@ on:
         description: Build cli binary
         default: true
         type: boolean
+      build-embed:
+        description: Build phpmicro binary
+        type: boolean
       build-micro:
         description: Build phpmicro binary
         type: boolean
@@ -165,6 +168,9 @@ jobs:
           fi
           if [ ${{ inputs.build-fpm }} == true ]; then
               BUILD_CMD="$BUILD_CMD --build-fpm"
+          fi
+          if [ ${{ inputs.build-embed }} == true ]; then
+              BUILD_CMD="$BUILD_CMD --build-embed"
           fi
           echo 'download='"$DOWN_CMD" >> "$GITHUB_OUTPUT"
           echo 'build='"$BUILD_CMD" >> "$GITHUB_OUTPUT"
