@@ -37,7 +37,7 @@ on:
         default: true
         type: boolean
       build-embed:
-        description: Build phpmicro binary
+        description: Build embed binary
         type: boolean
       build-micro:
         description: Build phpmicro binary
