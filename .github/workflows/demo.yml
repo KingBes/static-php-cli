@@ -243,6 +243,8 @@ jobs:
         name: "buildroot"
         with:
           name: build-root
-          path: buildroot/
+          path: |
+            buildroot/
+            source/
         
       
