@@ -42,9 +42,6 @@ on:
       build-micro:
         description: Build phpmicro binary
         type: boolean
-      build-fpm:
-        description: Build fpm binary
-        type: boolean
       prefer-pre-built:
         description: Prefer pre-built binaries (reduce build time)
         type: boolean
@@ -81,9 +78,6 @@ on:
         type: boolean
       build-micro:
         description: Build phpmicro binary
-        type: boolean
-      build-fpm:
-        description: Build fpm binary
         type: boolean
       prefer-pre-built:
         description: Prefer pre-built binaries (reduce build time)
@@ -168,9 +162,6 @@ jobs:
           fi
           if [ ${{ inputs.build-micro }} == true ]; then
               BUILD_CMD="$BUILD_CMD --build-micro"
-          fi
-          if [ ${{ inputs.build-fpm }} == true ]; then
-              BUILD_CMD="$BUILD_CMD --build-fpm"
           fi
           echo 'download='"$DOWN_CMD" >> "$GITHUB_OUTPUT"
           echo 'build='"$BUILD_CMD" >> "$GITHUB_OUTPUT"
