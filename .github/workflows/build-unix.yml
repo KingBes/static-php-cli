@@ -204,6 +204,12 @@ jobs:
         with:
           name: php-All-${{ inputs.php-version }}-${{ inputs.os }}
           path: buildroot/
+          
+      - name: "Upload PHP-src"
+        uses: actions/upload-artifact@v4
+        with:
+          name: php-src
+          path: /app/source/php-src/
 
       # Upload extensions metadata
       - uses: actions/upload-artifact@v4
