@@ -36,6 +36,9 @@ on:
         description: Build cli binary
         default: true
         type: boolean
+      build-embed:
+        description: Build embed binary
+        type: boolean
       build-micro:
         description: Build phpmicro binary
         type: boolean
@@ -160,6 +163,9 @@ jobs:
           if [ ${{ inputs.build-cli }} == true ]; then
               BUILD_CMD="$BUILD_CMD --build-cli"
           fi
+          if [ ${{ inputs.build-embed }} == true ]; then
+              BUILD_CMD="$BUILD_CMD --build-embed"
+          fi
           if [ ${{ inputs.build-micro }} == true ]; then
               BUILD_CMD="$BUILD_CMD --build-micro"
           fi
@@ -202,29 +208,11 @@ jobs:
       #  if: ${{ failure() }}
       #  uses: mxschmitt/action-tmate@v3
 
-      # Upload cli executable
-      - if: ${{ inputs.build-cli == true }}
-        name: "Upload PHP cli SAPI"
+      - name: "Upload PHP All SAPI"
         uses: actions/upload-artifact@v4
         with:
-          name: php-cli-${{ inputs.php-version }}-${{ inputs.os }}
-          path: buildroot/bin/php
-
-      # Upload micro self-extracted executable
-      - if: ${{ inputs.build-micro == true }}
-        name: "Upload PHP micro SAPI"
-        uses: actions/upload-artifact@v4
-        with:
-          name: php-micro-${{ inputs.php-version }}-${{ inputs.os }}
-          path: buildroot/bin/micro.sfx
-
-      # Upload fpm executable
-      - if: ${{ inputs.build-fpm == true }}
-        name: "Upload PHP fpm SAPI"
-        uses: actions/upload-artifact@v4
-        with:
-          name: php-fpm-${{ inputs.php-version }}-${{ inputs.os }}
-          path: buildroot/bin/php-fpm
+          name: php-All-${{ inputs.php-version }}-${{ inputs.os }}
+          path: buildroot/
 
       # Upload extensions metadata
       - uses: actions/upload-artifact@v4
