@@ -8,6 +8,7 @@ use SPC\exception\FileSystemException;
 use SPC\exception\RuntimeException;
 use SPC\exception\WrongUsageException;
 use SPC\store\FileSystem;
+use SPC\util\executor\UnixCMakeExecutor;
 
 trait freetype
 {
@@ -18,20 +19,18 @@ trait freetype
      */
     protected function build(): void
     {
-        $extra_libs = $this->builder->getLib('libpng') ? '-DFT_DISABLE_PNG=OFF ' : '-DFT_DISABLE_PNG=ON ';
-        $extra_libs .= $this->builder->getLib('bzip2') ? '-DFT_DISABLE_BZIP2=OFF ' : '-DFT_DISABLE_BZIP2=ON ';
-        $extra_libs .= $this->builder->getLib('brotli') ? '-DFT_DISABLE_BROTLI=OFF ' : '-DFT_DISABLE_BROTLI=ON ';
-        FileSystem::resetDir($this->source_dir . '/build');
-        shell()->cd($this->source_dir . '/build')
-            ->setEnv(['CFLAGS' => $this->getLibExtraCFlags(), 'LDFLAGS' => $this->getLibExtraLdFlags(), 'LIBS' => $this->getLibExtraLibs()])
-            ->execWithEnv(
-                "cmake {$this->builder->makeCmakeArgs()} -DFT_DISABLE_HARFBUZZ=ON " .
-                '-DBUILD_SHARED_LIBS=OFF ' .
-                "{$extra_libs}.."
-            )
-            ->execWithEnv('make clean')
-            ->execWithEnv("make -j{$this->builder->concurrency}")
-            ->execWithEnv('make install');
+        $cmake = UnixCMakeExecutor::create($this)
+            ->optionalLib('libpng', ...cmake_boolean_args('FT_DISABLE_PNG', true))
+            ->optionalLib('bzip2', ...cmake_boolean_args('FT_DISABLE_BZIP2', true))
+            ->optionalLib('brotli', ...cmake_boolean_args('FT_DISABLE_BROTLI', true))
+            ->addConfigureArgs('-DFT_DISABLE_HARFBUZZ=ON');
+
+        // fix cmake 4.0 compatibility
+        if (version_compare(get_cmake_version(), '4.0.0', '>=')) {
+            $cmake->addConfigureArgs('-DCMAKE_POLICY_VERSION_MINIMUM=3.12');
+        }
+
+        $cmake->build();
 
         $this->patchPkgconfPrefix(['freetype2.pc']);
         FileSystem::replaceFileStr(
@@ -39,7 +38,5 @@ trait freetype
             ' -L/lib ',
             ' -L' . BUILD_ROOT_PATH . '/lib '
         );
-
-        $this->cleanLaFiles();
     }
 }

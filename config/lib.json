@@ -86,6 +86,8 @@
             "libssh2",
             "brotli",
             "nghttp2",
+            "nghttp3",
+            "ngtcp2",
             "zstd",
             "libcares"
         ],
@@ -97,6 +99,15 @@
             "CoreFoundation",
             "CoreServices",
             "SystemConfiguration"
+        ]
+    },
+    "fastlz": {
+        "source": "fastlz",
+        "static-libs-unix": [
+            "libfastlz.a"
+        ],
+        "headers": [
+            "fastlz/fastlz.h"
         ]
     },
     "freetype": {
@@ -232,8 +243,8 @@
     "ldap": {
         "source": "ldap",
         "static-libs-unix": [
-            "liblber.a",
-            "libldap.a"
+            "libldap.a",
+            "liblber.a"
         ],
         "lib-depends": [
             "openssl",
@@ -387,7 +398,9 @@
         "source": "libmemcached",
         "static-libs-unix": [
             "libmemcached.a",
-            "libmemcachedutil.a"
+            "libmemcachedprotocol.a",
+            "libmemcachedutil.a",
+            "libhashkit.a"
         ]
     },
     "libpng": {
@@ -615,7 +628,45 @@
             "openssl"
         ],
         "lib-suggests": [
-            "libxml2"
+            "libxml2",
+            "nghttp3",
+            "ngtcp2"
+        ]
+    },
+    "nghttp3": {
+        "source": "nghttp3",
+        "static-libs-unix": [
+            "libnghttp3.a"
+        ],
+        "static-libs-windows": [
+            "nghttp3.lib"
+        ],
+        "headers": [
+            "nghttp3"
+        ],
+        "lib-depends": [
+            "openssl"
+        ]
+    },
+    "ngtcp2": {
+        "source": "ngtcp2",
+        "static-libs-unix": [
+            "libngtcp2.a",
+            "libngtcp2_crypto_ossl.a"
+        ],
+        "static-libs-windows": [
+            "ngtcp2.lib",
+            "ngtcp2_crypto_ossl.lib"
+        ],
+        "headers": [
+            "ngtcp2"
+        ],
+        "lib-depends": [
+            "openssl"
+        ],
+        "lib-suggests": [
+            "nghttp3",
+            "brotli"
         ]
     },
     "onig": {
@@ -802,6 +853,15 @@
         "headers-windows": [
             "zstd.h",
             "zstd_errors.h"
+        ]
+    },
+    "watcher": {
+        "source": "watcher",
+        "static-libs-unix": [
+            "libwatcher-c.a"
+        ],
+        "headers": [
+            "wtr/watcher-c.h"
         ]
     }
 }

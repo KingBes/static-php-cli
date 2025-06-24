@@ -6,6 +6,7 @@ namespace SPC\builder\unix\library;
 
 use SPC\exception\FileSystemException;
 use SPC\exception\RuntimeException;
+use SPC\util\executor\UnixAutoconfExecutor;
 
 trait readline
 {
@@ -15,19 +16,12 @@ trait readline
      */
     protected function build(): void
     {
-        shell()->cd($this->source_dir)
-            ->setEnv(['CFLAGS' => $this->getLibExtraCFlags(), 'LDFLAGS' => $this->getLibExtraLdFlags(), 'LIBS' => $this->getLibExtraLibs()])
-            ->execWithEnv(
-                './configure ' .
-                '--enable-static=yes ' .
-                '--enable-shared=no ' .
-                '--prefix= ' .
-                '--with-curses ' .
-                '--enable-multibyte=yes'
+        UnixAutoconfExecutor::create($this)
+            ->configure(
+                '--with-curses',
+                '--enable-multibyte=yes',
             )
-            ->execWithEnv('make clean')
-            ->execWithEnv("make -j{$this->builder->concurrency}")
-            ->execWithEnv('make install DESTDIR=' . BUILD_ROOT_PATH);
+            ->make();
         $this->patchPkgconfPrefix(['readline.pc']);
     }
 }

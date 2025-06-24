@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace SPC\util;
 
+use SPC\builder\freebsd\library\BSDLibraryBase;
+use SPC\builder\linux\library\LinuxLibraryBase;
+use SPC\builder\macos\library\MacOSLibraryBase;
 use SPC\exception\RuntimeException;
 use ZM\Logger\ConsoleColor;
 
@@ -41,14 +44,42 @@ class UnixShell
     {
         /* @phpstan-ignore-next-line */
         logger()->info(ConsoleColor::yellow('[EXEC] ') . ConsoleColor::green($cmd));
-        logger()->debug('Executed at: ' . debug_backtrace()[0]['file'] . ':' . debug_backtrace()[0]['line']);
-        if ($this->cd !== null) {
-            $cmd = 'cd ' . escapeshellarg($this->cd) . ' && ' . $cmd;
-        }
+        $cmd = $this->getExecString($cmd);
         if (!$this->debug) {
             $cmd .= ' 1>/dev/null 2>&1';
         }
         f_passthru($cmd);
+        return $this;
+    }
+
+    /**
+     * Init the environment variable that common build will be used.
+     *
+     * @param BSDLibraryBase|LinuxLibraryBase|MacOSLibraryBase $library Library class
+     */
+    public function initializeEnv(BSDLibraryBase|LinuxLibraryBase|MacOSLibraryBase $library): UnixShell
+    {
+        $this->setEnv([
+            'CFLAGS' => $library->getLibExtraCFlags(),
+            'LDFLAGS' => $library->getLibExtraLdFlags(),
+            'LIBS' => $library->getLibExtraLibs(),
+            'CXXFLAGS' => $library->getLibExtraCXXFlags(),
+        ]);
+        return $this;
+    }
+
+    public function appendEnv(array $env): UnixShell
+    {
+        foreach ($env as $k => $v) {
+            if ($v === '') {
+                continue;
+            }
+            if (!isset($this->env[$k])) {
+                $this->env[$k] = $v;
+            } else {
+                $this->env[$k] = "{$v} {$this->env[$k]}";
+            }
+        }
         return $this;
     }
 
@@ -61,10 +92,7 @@ class UnixShell
             /* @phpstan-ignore-next-line */
             logger()->debug(ConsoleColor::blue('[EXEC] ') . ConsoleColor::gray($cmd));
         }
-        logger()->debug('Executed at: ' . debug_backtrace()[0]['file'] . ':' . debug_backtrace()[0]['line']);
-        if ($this->cd !== null) {
-            $cmd = 'cd ' . escapeshellarg($this->cd) . ' && ' . $cmd;
-        }
+        $cmd = $this->getExecString($cmd);
         exec($cmd, $out, $code);
         return [$code, $out];
     }
@@ -72,28 +100,33 @@ class UnixShell
     public function setEnv(array $env): UnixShell
     {
         foreach ($env as $k => $v) {
-            if ($v === '') {
+            if (trim($v) === '') {
                 continue;
             }
-            $this->env[$k] = $v;
+            $this->env[$k] = trim($v);
         }
         return $this;
     }
 
-    /**
-     * @throws RuntimeException
-     */
-    public function execWithEnv(string $cmd): UnixShell
-    {
-        return $this->exec($this->getEnvString() . ' ' . $cmd);
-    }
-
-    private function getEnvString(): string
+    public function getEnvString(): string
     {
         $str = '';
         foreach ($this->env as $k => $v) {
             $str .= ' ' . $k . '="' . $v . '"';
         }
         return trim($str);
+    }
+
+    private function getExecString(string $cmd): string
+    {
+        logger()->debug('Executed at: ' . debug_backtrace()[0]['file'] . ':' . debug_backtrace()[0]['line']);
+        $env_str = $this->getEnvString();
+        if (!empty($env_str)) {
+            $cmd = "{$env_str} {$cmd}";
+        }
+        if ($this->cd !== null) {
+            $cmd = 'cd ' . escapeshellarg($this->cd) . ' && ' . $cmd;
+        }
+        return $cmd;
     }
 }

@@ -64,9 +64,8 @@ class openssl extends LinuxLibraryBase
 
         $clang_postfix = SystemUtil::getCCType(getenv('CC')) === 'clang' ? '-clang' : '';
 
-        shell()->cd($this->source_dir)
-            ->setEnv(['CFLAGS' => $this->getLibExtraCFlags() ?: $this->builder->arch_c_flags, 'LDFLAGS' => $this->getLibExtraLdFlags(), 'LIBS' => $this->getLibExtraLibs()])
-            ->execWithEnv(
+        shell()->cd($this->source_dir)->initializeEnv($this)
+            ->exec(
                 "{$env} ./Configure no-shared {$extra} " .
                 '--prefix=/ ' .
                 '--libdir=lib ' .
@@ -76,7 +75,7 @@ class openssl extends LinuxLibraryBase
                 "linux-{$arch}{$clang_postfix}"
             )
             ->exec('make clean')
-            ->execWithEnv("make -j{$this->builder->concurrency} CNF_EX_LIBS=\"{$ex_lib}\"")
+            ->exec("make -j{$this->builder->concurrency} CNF_EX_LIBS=\"{$ex_lib}\"")
             ->exec("make install_sw DESTDIR={$destdir}");
         $this->patchPkgconfPrefix(['libssl.pc', 'openssl.pc', 'libcrypto.pc']);
         // patch for openssl 3.3.0+
@@ -91,5 +90,14 @@ class openssl extends LinuxLibraryBase
         }
         FileSystem::replaceFileRegex(BUILD_LIB_PATH . '/pkgconfig/libcrypto.pc', '/Libs.private:.*/m', 'Libs.private: ${libdir}/libz.a');
         FileSystem::replaceFileRegex(BUILD_LIB_PATH . '/cmake/OpenSSL/OpenSSLConfig.cmake', '/set\(OPENSSL_LIBCRYPTO_DEPENDENCIES .*\)/m', 'set(OPENSSL_LIBCRYPTO_DEPENDENCIES "${OPENSSL_LIBRARY_DIR}/libz.a")');
+    }
+
+    public function getStaticLibFiles(string $style = 'autoconf', bool $recursive = true, bool $include_self = true): string
+    {
+        $libFiles = parent::getStaticLibFiles($style, $recursive, $include_self);
+        if (!str_contains('-ldl -lpthread', $libFiles)) {
+            $libFiles .= ' -ldl -lpthread';
+        }
+        return $libFiles;
     }
 }

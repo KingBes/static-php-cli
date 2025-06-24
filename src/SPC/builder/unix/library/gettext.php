@@ -4,38 +4,34 @@ declare(strict_types=1);
 
 namespace SPC\builder\unix\library;
 
+use SPC\util\executor\UnixAutoconfExecutor;
+
 trait gettext
 {
     protected function build(): void
     {
-        $extra = $this->builder->getLib('ncurses') ? ('--with-libncurses-prefix=' . BUILD_ROOT_PATH . ' ') : '';
-        $extra .= $this->builder->getLib('libxml2') ? ('--with-libxml2-prefix=' . BUILD_ROOT_PATH . ' ') : '';
+        $autoconf = UnixAutoconfExecutor::create($this)
+            ->optionalLib('ncurses', "--with-libncurses-prefix={$this->getBuildRootPath()}")
+            ->optionalLib('libxml2', "--with-libxml2-prefix={$this->getBuildRootPath()}")
+            ->addConfigureArgs(
+                '--disable-java',
+                '--disable-c++',
+                '--with-included-gettext',
+                "--with-iconv-prefix={$this->getBuildRootPath()}",
+            );
 
-        $zts = $this->builder->getOption('enable-zts') ? '--enable-threads=isoc+posix ' : '--disable-threads ';
+        // zts
+        if ($this->builder->getOption('enable-zts')) {
+            $autoconf->addConfigureArgs('--enable-threads=isoc+posix')
+                ->appendEnv([
+                    'CFLAGS' => '-lpthread -D_REENTRANT',
+                    'LDFLGAS' => '-lpthread',
+                ]);
+        } else {
+            $autoconf->addConfigureArgs('--disable-threads');
+        }
 
-        $cflags = $this->builder->getOption('enable-zts') ? '-lpthread -D_REENTRANT' : '';
-        $ldflags = $this->builder->getOption('enable-zts') ? '-lpthread' : '';
-
-        shell()->cd($this->source_dir)
-            ->setEnv([
-                'CFLAGS' => "{$this->getLibExtraCFlags()} {$cflags}",
-                'LDFLAGS' => $this->getLibExtraLdFlags() ?: $ldflags,
-                'LIBS' => $this->getLibExtraLibs(),
-            ])
-            ->execWithEnv(
-                './configure ' .
-                '--enable-static ' .
-                '--disable-shared ' .
-                '--disable-java ' .
-                '--disable-c++ ' .
-                $zts .
-                $extra .
-                '--with-included-gettext ' .
-                '--with-libiconv-prefix=' . BUILD_ROOT_PATH . ' ' .
-                '--prefix=' . BUILD_ROOT_PATH
-            )
-            ->execWithEnv('make clean')
-            ->execWithEnv("make -j{$this->builder->concurrency}")
-            ->execWithEnv('make install');
+        $autoconf->configure()->make(with_clean: true);
+        $this->patchLaDependencyPrefix();
     }
 }

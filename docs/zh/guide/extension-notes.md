@@ -4,6 +4,8 @@
 
 ## curl
 
+HTTP3 支持默认未启用，需在编译时添加 `--with-libs="nghttp2,nghttp3,ngtcp2"` 以启用 PHP 8.4 及以上版本的 HTTP3 支持。
+
 使用 curl 请求 HTTPS 时，可能存在 `error:80000002:system library::No such file or directory` 错误，
 解决办法详见 [FAQ - 无法使用 ssl](../faq/#无法使用-ssl)。
 
@@ -139,8 +141,7 @@ parallel 扩展只支持 PHP 8.0 及以上版本，并只支持 ZTS 构建（`--
 
 ## spx
 
-1. [SPX 扩展](https://github.com/NoiseByNorthwest/php-spx) 只支持非线程模式。
-2. SPX 目前不支持 Windows，且官方仓库也不支持静态编译，static-php-cli 使用了 [修改版本](https://github.com/static-php/php-spx)。
+1. SPX 目前不支持 Windows，且官方仓库也不支持静态编译，static-php-cli 使用了 [修改版本](https://github.com/static-php/php-spx)。
 
 ## mimalloc
 

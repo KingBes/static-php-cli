@@ -6,6 +6,7 @@ namespace SPC\builder\unix\library;
 
 use SPC\exception\FileSystemException;
 use SPC\exception\RuntimeException;
+use SPC\util\executor\UnixAutoconfExecutor;
 
 trait gmp
 {
@@ -15,16 +16,7 @@ trait gmp
      */
     protected function build(): void
     {
-        shell()->cd($this->source_dir)
-            ->setEnv(['CFLAGS' => $this->getLibExtraCFlags() ?: $this->builder->arch_c_flags, 'LDFLAGS' => $this->getLibExtraLdFlags(), 'LIBS' => $this->getLibExtraLibs()])
-            ->execWithEnv(
-                './configure ' .
-                '--enable-static --disable-shared ' .
-                '--prefix='
-            )
-            ->execWithEnv('make clean')
-            ->execWithEnv("make -j{$this->builder->concurrency}")
-            ->exec('make install DESTDIR=' . BUILD_ROOT_PATH);
+        UnixAutoconfExecutor::create($this)->configure()->make();
         $this->patchPkgconfPrefix(['gmp.pc']);
     }
 }

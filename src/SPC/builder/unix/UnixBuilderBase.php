@@ -5,11 +5,15 @@ declare(strict_types=1);
 namespace SPC\builder\unix;
 
 use SPC\builder\BuilderBase;
-use SPC\builder\linux\LinuxBuilder;
+use SPC\builder\freebsd\library\BSDLibraryBase;
+use SPC\builder\linux\library\LinuxLibraryBase;
+use SPC\builder\macos\library\MacOSLibraryBase;
 use SPC\exception\FileSystemException;
 use SPC\exception\RuntimeException;
 use SPC\exception\WrongUsageException;
 use SPC\store\Config;
+use SPC\store\CurlHook;
+use SPC\store\Downloader;
 use SPC\store\FileSystem;
 use SPC\util\DependencyUtil;
 use SPC\util\SPCConfigUtil;
@@ -21,9 +25,6 @@ abstract class UnixBuilderBase extends BuilderBase
 
     /** @var string C++ flags */
     public string $arch_cxx_flags;
-
-    /** @var string cmake toolchain file */
-    public string $cmake_toolchain_file;
 
     /**
      * @throws WrongUsageException
@@ -54,21 +55,6 @@ abstract class UnixBuilderBase extends BuilderBase
     }
 
     /**
-     * Return generic cmake options when configuring cmake projects
-     */
-    public function makeCmakeArgs(): string
-    {
-        $extra = $this instanceof LinuxBuilder ? '-DCMAKE_C_COMPILER=' . getenv('CC') . ' ' : '';
-        return $extra .
-            '-DCMAKE_BUILD_TYPE=Release ' .
-            '-DCMAKE_INSTALL_PREFIX=' . BUILD_ROOT_PATH . ' ' .
-            '-DCMAKE_INSTALL_BINDIR=bin ' .
-            '-DCMAKE_INSTALL_LIBDIR=lib ' .
-            '-DCMAKE_INSTALL_INCLUDEDIR=include ' .
-            "-DCMAKE_TOOLCHAIN_FILE={$this->cmake_toolchain_file}";
-    }
-
-    /**
      * Generate configure flags
      */
     public function makeAutoconfFlags(int $flag = AUTOCONF_ALL): string
@@ -88,6 +74,35 @@ abstract class UnixBuilderBase extends BuilderBase
             $extra .= 'LDFLAGS="-L' . BUILD_LIB_PATH . '" ';
         }
         return $extra;
+    }
+
+    /**
+     * @throws FileSystemException
+     * @throws RuntimeException
+     * @throws WrongUsageException
+     */
+    public function makeAutoconfArgs(string $name, array $libSpecs): string
+    {
+        $ret = '';
+        foreach ($libSpecs as $libName => $arr) {
+            $lib = $this->getLib($libName);
+            if ($lib === null && str_starts_with($libName, 'lib')) {
+                $lib = $this->getLib(substr($libName, 3));
+            }
+
+            $arr = $arr ?? [];
+
+            $disableArgs = $arr[0] ?? null;
+            $prefix = $arr[1] ?? null;
+            if ($lib instanceof LinuxLibraryBase || $lib instanceof MacOSLibraryBase || $lib instanceof BSDLibraryBase) {
+                logger()->info("{$name} \033[32;1mwith\033[0;1m {$libName} support");
+                $ret .= "--with-{$libName}=yes " . $lib->makeAutoconfEnv($prefix) . ' ';
+            } else {
+                logger()->info("{$name} \033[31;1mwithout\033[0;1m {$libName} support");
+                $ret .= ($disableArgs ?? "--with-{$libName}=no") . ' ';
+            }
+        }
+        return rtrim($ret);
     }
 
     public function proveLibs(array $sorted_libraries): void
@@ -140,13 +155,13 @@ abstract class UnixBuilderBase extends BuilderBase
         // sanity check for php-cli
         if (($build_target & BUILD_TARGET_CLI) === BUILD_TARGET_CLI) {
             logger()->info('running cli sanity check');
-            [$ret, $output] = shell()->execWithResult(BUILD_ROOT_PATH . '/bin/php -n -r "echo \"hello\";"');
+            [$ret, $output] = shell()->execWithResult(BUILD_BIN_PATH . '/php -n -r "echo \"hello\";"');
             $raw_output = implode('', $output);
             if ($ret !== 0 || trim($raw_output) !== 'hello') {
                 throw new RuntimeException("cli failed sanity check: ret[{$ret}]. out[{$raw_output}]");
             }
 
-            foreach ($this->getExts(false) as $ext) {
+            foreach ($this->getExts() as $ext) {
                 logger()->debug('testing ext: ' . $ext->getName());
                 $ext->runCliCheckUnix();
             }
@@ -205,6 +220,21 @@ abstract class UnixBuilderBase extends BuilderBase
                 throw new RuntimeException('embed failed sanity check: run failed. Error message: ' . implode("\n", $output));
             }
         }
+
+        // sanity check for frankenphp
+        if (($build_target & BUILD_TARGET_FRANKENPHP) === BUILD_TARGET_FRANKENPHP) {
+            logger()->info('running frankenphp sanity check');
+            $frankenphp = BUILD_BIN_PATH . '/frankenphp';
+            if (!file_exists($frankenphp)) {
+                throw new RuntimeException('FrankenPHP binary not found: ' . $frankenphp);
+            }
+            [$ret, $output] = shell()
+                ->setEnv(['LD_LIBRARY_PATH' => BUILD_LIB_PATH])
+                ->execWithResult("{$frankenphp} version");
+            if ($ret !== 0 || !str_contains(implode('', $output), 'FrankenPHP')) {
+                throw new RuntimeException('FrankenPHP failed sanity check: ret[' . $ret . ']. out[' . implode('', $output) . ']');
+            }
+        }
     }
 
     /**
@@ -223,8 +253,8 @@ abstract class UnixBuilderBase extends BuilderBase
             default => throw new RuntimeException('Deployment does not accept type ' . $type),
         };
         logger()->info('Deploying ' . $this->getBuildTypeName($type) . ' file');
-        FileSystem::createDir(BUILD_ROOT_PATH . '/bin');
-        shell()->exec('cp ' . escapeshellarg($src) . ' ' . escapeshellarg(BUILD_ROOT_PATH . '/bin/'));
+        FileSystem::createDir(BUILD_BIN_PATH);
+        shell()->exec('cp ' . escapeshellarg($src) . ' ' . escapeshellarg(BUILD_BIN_PATH));
         return true;
     }
 
@@ -250,6 +280,7 @@ abstract class UnixBuilderBase extends BuilderBase
             logger()->debug('Patching phpize prefix');
             FileSystem::replaceFileStr(BUILD_BIN_PATH . '/phpize', "prefix=''", "prefix='" . BUILD_ROOT_PATH . "'");
             FileSystem::replaceFileStr(BUILD_BIN_PATH . '/phpize', 's##', 's#/usr/local#');
+            FileSystem::replaceFileStr(BUILD_LIB_PATH . '/php/build/phpize.m4', 'test "[$]$1" = "no" && $1=yes', '# test "[$]$1" = "no" && $1=yes');
         }
         // patch php-config
         if (file_exists(BUILD_BIN_PATH . '/php-config')) {
@@ -262,5 +293,71 @@ abstract class UnixBuilderBase extends BuilderBase
             $php_config_str = preg_replace('/(libs=")(.*?)\s*(-lstdc\+\+)\s*(.*?)"/', '$1$2 $4 $3"', $php_config_str);
             FileSystem::writeFile(BUILD_BIN_PATH . '/php-config', $php_config_str);
         }
+    }
+
+    /**
+     * @throws WrongUsageException
+     * @throws RuntimeException
+     */
+    protected function buildFrankenphp(): void
+    {
+        $os = match (PHP_OS_FAMILY) {
+            'Linux' => 'linux',
+            'Windows' => 'win',
+            'Darwin' => 'macos',
+            'BSD' => 'freebsd',
+            default => throw new RuntimeException('Unsupported OS: ' . PHP_OS_FAMILY),
+        };
+        $arch = arch2gnu(php_uname('m'));
+
+        // define executables for go and xcaddy
+        $xcaddy_exec = PKG_ROOT_PATH . "/go-xcaddy-{$arch}-{$os}/bin/xcaddy";
+
+        $nobrotli = $this->getLib('brotli') === null ? ',nobrotli' : '';
+        $nowatcher = $this->getLib('watcher') === null ? ',nowatcher' : '';
+        $xcaddyModules = getenv('SPC_CMD_VAR_FRANKENPHP_XCADDY_MODULES');
+        // make it possible to build from a different frankenphp directory!
+        if (!str_contains($xcaddyModules, '--with github.com/dunglas/frankenphp')) {
+            $xcaddyModules = '--with github.com/dunglas/frankenphp ' . $xcaddyModules;
+        }
+        if ($this->getLib('brotli') === null && str_contains($xcaddyModules, '--with github.com/dunglas/caddy-cbrotli')) {
+            logger()->warning('caddy-cbrotli module is enabled, but brotli library is not built. Disabling caddy-cbrotli.');
+            $xcaddyModules = str_replace('--with github.com/dunglas/caddy-cbrotli', '', $xcaddyModules);
+        }
+        $lrt = PHP_OS_FAMILY === 'Linux' ? '-lrt' : '';
+        $releaseInfo = json_decode(Downloader::curlExec('https://api.github.com/repos/php/frankenphp/releases/latest', retries: 3, hooks: [[CurlHook::class, 'setupGithubToken']]), true);
+        $frankenPhpVersion = $releaseInfo['tag_name'];
+        $libphpVersion = $this->getPHPVersion();
+        if (getenv('SPC_CMD_VAR_PHP_EMBED_TYPE') === 'shared') {
+            $libphpVersion = preg_replace('/\.\d$/', '', $libphpVersion);
+        }
+        $debugFlags = $this->getOption('no-strip') ? "'-w -s' " : '';
+        $extLdFlags = "-extldflags '-pie'";
+        $muslTags = '';
+        if (PHP_OS_FAMILY === 'Linux' && getenv('SPC_LIBC') === 'musl') {
+            $extLdFlags = "-extldflags '-static-pie -Wl,-z,stack-size=0x80000'";
+            $muslTags = 'static_build,';
+        }
+
+        $config = (new SPCConfigUtil($this))->config($this->ext_list, $this->lib_list, with_dependencies: true);
+
+        $env = [
+            'PATH' => PKG_ROOT_PATH . "/go-xcaddy-{$arch}-{$os}/bin:" . getenv('PATH'),
+            'GOROOT' => PKG_ROOT_PATH . "/go-xcaddy-{$arch}-{$os}",
+            'GOBIN' => PKG_ROOT_PATH . "/go-xcaddy-{$arch}-{$os}/bin",
+            'GOPATH' => PKG_ROOT_PATH . '/go',
+            'CGO_ENABLED' => '1',
+            'CGO_CFLAGS' => $config['cflags'],
+            'CGO_LDFLAGS' => "{$config['ldflags']} {$config['libs']} {$lrt}",
+            'XCADDY_GO_BUILD_FLAGS' => '-buildmode=pie ' .
+                '-ldflags \"-linkmode=external ' . $extLdFlags . ' ' . $debugFlags .
+                '-X \'github.com/caddyserver/caddy/v2.CustomVersion=FrankenPHP ' .
+                "{$frankenPhpVersion} PHP {$libphpVersion} Caddy'\\\" " .
+                "-tags={$muslTags}nobadger,nomysql,nopgx{$nobrotli}{$nowatcher}",
+            'LD_LIBRARY_PATH' => BUILD_LIB_PATH,
+        ];
+        shell()->cd(BUILD_BIN_PATH)
+            ->setEnv($env)
+            ->exec("{$xcaddy_exec} build --output frankenphp {$xcaddyModules}");
     }
 }

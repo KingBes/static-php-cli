@@ -21,7 +21,8 @@ class LinuxToolCheckList
         'tar', 'unzip', 'gzip',
         'bzip2', 'cmake', 'gcc',
         'g++', 'patch', 'binutils-gold',
-        'libtoolize',
+        'libtoolize', 'which',
+        'patchelf',
     ];
 
     public const TOOLS_DEBIAN = [
@@ -29,15 +30,17 @@ class LinuxToolCheckList
         'git', 'autoconf', 'automake', 'autopoint',
         'tar', 'unzip', 'gzip',
         'bzip2', 'cmake', 'patch',
-        'xz', 'libtoolize',
+        'xz', 'libtoolize', 'which',
+        'patchelf',
     ];
 
     public const TOOLS_RHEL = [
         'perl', 'make', 'bison', 'flex',
         'git', 'autoconf', 'automake',
         'tar', 'unzip', 'gzip', 'gcc',
-        'bzip2', 'cmake', 'patch',
+        'bzip2', 'cmake', 'patch', 'which',
         'xz', 'libtool', 'gettext-devel',
+        'perl', 'patchelf',
     ];
 
     public const TOOLS_ARCH = [
@@ -47,7 +50,7 @@ class LinuxToolCheckList
     private const PROVIDED_COMMAND = [
         'binutils-gold' => 'ld.gold',
         'base-devel' => 'automake',
-        'gettext-devel' => 'gettext',
+        'gettext-devel' => 'gettextize',
     ];
 
     /** @noinspection PhpUnused */
@@ -87,17 +90,14 @@ class LinuxToolCheckList
     #[AsCheckItem('if cmake version >= 3.18', limit_os: 'Linux')]
     public function checkCMakeVersion(): ?CheckResult
     {
-        $check_cmd = 'cmake --version';
-        $pattern = '/cmake version (.*)/m';
-        $out = shell()->execWithResult($check_cmd, false)[1][0];
-        if (preg_match($pattern, $out, $match)) {
-            $ver = $match[1];
-            if (version_compare($ver, '3.18.0') <= 0) {
-                return CheckResult::fail('cmake version is too low (' . $ver . '), please update it manually!');
-            }
-            return CheckResult::ok($match[1]);
+        $ver = get_cmake_version();
+        if ($ver === null) {
+            return CheckResult::fail('Failed to get cmake version');
         }
-        return CheckResult::fail('Failed to get cmake version');
+        if (version_compare($ver, '3.18.0') < 0) {
+            return CheckResult::fail('cmake version is too low (' . $ver . '), please update it manually!');
+        }
+        return CheckResult::ok($ver);
     }
 
     /** @noinspection PhpUnused */
