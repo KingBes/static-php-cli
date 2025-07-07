@@ -32,15 +32,18 @@ on:
       extra-libs:
         description: Extra libraries to build (optional, comma separated)
         type: string
+      ini-config:
+        description: ini-config
+        type: string
       build-cli:
         description: Build cli binary
         default: true
         type: boolean
-      build-embed:
-        description: Build embed binary
-        type: boolean
       build-micro:
         description: Build phpmicro binary
+        type: boolean
+      build-fpm:
+        description: Build fpm binary
         type: boolean
       prefer-pre-built:
         description: Prefer pre-built binaries (reduce build time)
@@ -72,12 +75,18 @@ on:
       extra-libs:
         description: Extra libraries to build (optional, comma separated)
         type: string
+      ini-config:
+        description: ini-config
+        type: string
       build-cli:
         description: Build cli binary
         default: true
         type: boolean
       build-micro:
         description: Build phpmicro binary
+        type: boolean
+      build-fpm:
+        description: Build fpm binary
         type: boolean
       prefer-pre-built:
         description: Prefer pre-built binaries (reduce build time)
@@ -142,7 +151,7 @@ jobs:
               ;;
           esac
           DOWN_CMD="$DOWN_CMD --with-php=${{ inputs.php-version }} --for-extensions=${{ inputs.extensions }} --ignore-cache-sources=php-src"
-          BUILD_CMD="$BUILD_CMD ${{ inputs.extensions }}"
+          BUILD_CMD="$BUILD_CMD ${{ inputs.extensions }} ${{ inputs.ini-config }}"
           if [ -n "${{ inputs.extra-libs }}" ]; then
             DOWN_CMD="$DOWN_CMD --for-libs=${{ inputs.extra-libs }}"
             BUILD_CMD="$BUILD_CMD --with-libs=${{ inputs.extra-libs }}"
@@ -157,11 +166,11 @@ jobs:
           if [ ${{ inputs.build-cli }} == true ]; then
               BUILD_CMD="$BUILD_CMD --build-cli"
           fi
-          if [ ${{ inputs.build-embed }} == true ]; then
-              BUILD_CMD="$BUILD_CMD --build-embed"
-          fi
           if [ ${{ inputs.build-micro }} == true ]; then
               BUILD_CMD="$BUILD_CMD --build-micro"
+          fi
+          if [ ${{ inputs.build-fpm }} == true ]; then
+              BUILD_CMD="$BUILD_CMD --build-fpm"
           fi
           echo 'download='"$DOWN_CMD" >> "$GITHUB_OUTPUT"
           echo 'build='"$BUILD_CMD" >> "$GITHUB_OUTPUT"
@@ -199,17 +208,29 @@ jobs:
       #  if: ${{ failure() }}
       #  uses: mxschmitt/action-tmate@v3
 
-      - name: "Upload PHP All SAPI"
+      # Upload cli executable
+      - if: ${{ inputs.build-cli == true }}
+        name: "Upload PHP cli SAPI"
         uses: actions/upload-artifact@v4
         with:
-          name: php-All-${{ inputs.php-version }}-${{ inputs.os }}
-          path: buildroot/
-          
-      - name: "Upload PHP-src"
+          name: php-cli-${{ inputs.php-version }}-${{ inputs.os }}
+          path: buildroot/bin/php
+
+      # Upload micro self-extracted executable
+      - if: ${{ inputs.build-micro == true }}
+        name: "Upload PHP micro SAPI"
         uses: actions/upload-artifact@v4
         with:
-          name: php-src
-          path: /app/source/php-src/
+          name: php-micro-${{ inputs.php-version }}-${{ inputs.os }}
+          path: buildroot/bin/micro.sfx
+
+      # Upload fpm executable
+      - if: ${{ inputs.build-fpm == true }}
+        name: "Upload PHP fpm SAPI"
+        uses: actions/upload-artifact@v4
+        with:
+          name: php-fpm-${{ inputs.php-version }}-${{ inputs.os }}
+          path: buildroot/bin/php-fpm
 
       # Upload extensions metadata
       - uses: actions/upload-artifact@v4
