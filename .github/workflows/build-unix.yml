@@ -42,9 +42,6 @@ on:
       build-micro:
         description: Build phpmicro binary
         type: boolean
-      build-fpm:
-        description: Build fpm binary
-        type: boolean
       prefer-pre-built:
         description: Prefer pre-built binaries (reduce build time)
         type: boolean
@@ -84,9 +81,6 @@ on:
         type: boolean
       build-micro:
         description: Build phpmicro binary
-        type: boolean
-      build-fpm:
-        description: Build fpm binary
         type: boolean
       prefer-pre-built:
         description: Prefer pre-built binaries (reduce build time)
@@ -172,9 +166,6 @@ jobs:
           if [ ${{ inputs.build-micro }} == true ]; then
               BUILD_CMD="$BUILD_CMD --build-micro"
           fi
-          if [ ${{ inputs.build-fpm }} == true ]; then
-              BUILD_CMD="$BUILD_CMD --build-fpm"
-          fi
           echo 'download='"$DOWN_CMD" >> "$GITHUB_OUTPUT"
           echo 'build='"$BUILD_CMD" >> "$GITHUB_OUTPUT"
           echo 'run='"$RUNS_ON" >> "$GITHUB_OUTPUT"
@@ -226,14 +217,6 @@ jobs:
         with:
           name: php-micro-${{ inputs.php-version }}-${{ inputs.os }}
           path: buildroot/bin/micro.sfx
-
-      # Upload fpm executable
-      - if: ${{ inputs.build-fpm == true }}
-        name: "Upload PHP fpm SAPI"
-        uses: actions/upload-artifact@v4
-        with:
-          name: php-fpm-${{ inputs.php-version }}-${{ inputs.os }}
-          path: buildroot/bin/php-fpm
 
       # Upload extensions metadata
       - uses: actions/upload-artifact@v4
