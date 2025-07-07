@@ -151,10 +151,13 @@ jobs:
               ;;
           esac
           DOWN_CMD="$DOWN_CMD --with-php=${{ inputs.php-version }} --for-extensions=${{ inputs.extensions }} --ignore-cache-sources=php-src"
-          BUILD_CMD="$BUILD_CMD ${{ inputs.extensions }} ${{ inputs.ini-config }}"
+          BUILD_CMD="$BUILD_CMD ${{ inputs.extensions }}"
           if [ -n "${{ inputs.extra-libs }}" ]; then
             DOWN_CMD="$DOWN_CMD --for-libs=${{ inputs.extra-libs }}"
             BUILD_CMD="$BUILD_CMD --with-libs=${{ inputs.extra-libs }}"
+          fi
+          if [ -n "${{ inputs.ini-config }}" ]; then
+            BUILD_CMD="$BUILD_CMD ${{ inputs.extra-libs }}"
           fi
           if [ ${{ inputs.debug }} == true ]; then
             DOWN_CMD="$DOWN_CMD --debug"
