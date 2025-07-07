@@ -157,7 +157,7 @@ jobs:
             BUILD_CMD="$BUILD_CMD --with-libs=${{ inputs.extra-libs }}"
           fi
           if [ -n "${{ inputs.ini-config }}" ]; then
-            BUILD_CMD="$BUILD_CMD ${{ inputs.extra-libs }}"
+            BUILD_CMD="$BUILD_CMD ${{ inputs.ini-config }}"
           fi
           if [ ${{ inputs.debug }} == true ]; then
             DOWN_CMD="$DOWN_CMD --debug"
