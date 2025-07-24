@@ -4,18 +4,19 @@ declare(strict_types=1);
 
 namespace SPC\builder\unix\library;
 
-use SPC\builder\linux\library\LinuxLibraryBase;
-use SPC\builder\macos\library\MacOSLibraryBase;
 use SPC\exception\FileSystemException;
 use SPC\exception\RuntimeException;
+use SPC\exception\WrongUsageException;
 use SPC\store\FileSystem;
 use SPC\util\executor\UnixAutoconfExecutor;
+use SPC\util\SPCTarget;
 
 trait imagemagick
 {
     /**
      * @throws RuntimeException
      * @throws FileSystemException
+     * @throws WrongUsageException
      */
     protected function build(): void
     {
@@ -31,18 +32,17 @@ trait imagemagick
             ->optionalLib('zstd', ...ac_with_args('zstd'))
             ->optionalLib('freetype', ...ac_with_args('freetype'))
             ->optionalLib('bzip2', ...ac_with_args('bzlib'))
+            ->optionalLib('libjxl', ...ac_with_args('jxl'))
             ->addConfigureArgs(
-                // TODO: glibc rh 10 toolset's libgomp.a was built without -fPIC so we can't use openmp without depending on libgomp.so
-                getenv('SPC_LIBC') === 'glibc' && str_contains(getenv('CC'), 'devtoolset-10') ? '--disable-openmp' : '--enable-openmp',
-                '--without-jxl',
+                '--disable-openmp',
                 '--without-x',
             );
 
-        // special: linux musl needs `-static`
-        $ldflags = ($this instanceof LinuxLibraryBase) && getenv('SPC_LIBC') !== 'glibc' ? ('-static -ldl') : '-ldl';
+        // special: linux-static target needs `-static`
+        $ldflags = SPCTarget::isStatic() ? ('-static -ldl') : '-ldl';
 
         // special: macOS needs -iconv
-        $libs = $this instanceof MacOSLibraryBase ? '-liconv' : '';
+        $libs = SPCTarget::getTargetOS() === 'Darwin' ? '-liconv' : '';
 
         $ac->appendEnv([
             'LDFLAGS' => $ldflags,

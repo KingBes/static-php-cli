@@ -121,6 +121,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: 8.4
+          extensions: curl, openssl, mbstring
 
       - name: Define
         id: gendef
@@ -190,7 +191,7 @@ jobs:
           echo "UPX_CMD=$(php src/globals/test-extensions.php upx)" >> $GITHUB_ENV
 
       - name: "Run Build Tests (download)"
-        run: GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} php src/globals/test-extensions.php download_cmd ${{ matrix.os }} ${{ matrix.php }}
+        run: php src/globals/test-extensions.php download_cmd ${{ matrix.os }} ${{ matrix.php }}
 
       - name: "Run Build Tests (build)"
         run: php src/globals/test-extensions.php build_cmd ${{ matrix.os }} ${{ matrix.php }}
@@ -198,3 +199,7 @@ jobs:
       - name: "Run Build Tests (build - embed for non-windows)"
         if: ${{ !startsWith(matrix.os, 'windows-') }}
         run: php src/globals/test-extensions.php build_embed_cmd ${{ matrix.os }} ${{ matrix.php }}
+
+#      - name: Setup tmate session
+#        if: ${{ failure() }}
+#        uses: mxschmitt/action-tmate@v3

@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace SPC\util;
 
-use SPC\builder\BuilderBase;
-use SPC\builder\linux\SystemUtil;
 use SPC\exception\RuntimeException;
 use SPC\exception\WrongUsageException;
+use SPC\toolchain\ToolchainManager;
 
 /**
  * Environment variable manager
@@ -24,11 +23,10 @@ class GlobalEnvManager
     /**
      * Initialize the environment variables
      *
-     * @param  null|BuilderBase    $builder Builder
      * @throws RuntimeException
      * @throws WrongUsageException
      */
-    public static function init(?BuilderBase $builder = null): void
+    public static function init(): void
     {
         // Check pre-defined env vars exists
         if (getenv('BUILD_ROOT_PATH') === false) {
@@ -37,28 +35,89 @@ class GlobalEnvManager
 
         // Define env vars for unix
         if (is_unix()) {
-            self::putenv('PATH=' . BUILD_ROOT_PATH . '/bin:' . getenv('PATH'));
+            self::addPathIfNotExists(BUILD_BIN_PATH);
             self::putenv('PKG_CONFIG=' . BUILD_BIN_PATH . '/pkg-config');
             self::putenv('PKG_CONFIG_PATH=' . BUILD_ROOT_PATH . '/lib/pkgconfig');
         }
 
-        // Define env vars for linux
-        if (PHP_OS_FAMILY === 'Linux') {
-            $arch = getenv('GNU_ARCH');
-            if (SystemUtil::isMuslDist() || getenv('SPC_LIBC') === 'glibc') {
-                self::putenv('SPC_LINUX_DEFAULT_CC=gcc');
-                self::putenv('SPC_LINUX_DEFAULT_CXX=g++');
-                self::putenv('SPC_LINUX_DEFAULT_AR=ar');
-                self::putenv('SPC_LINUX_DEFAULT_LD=ld.gold');
-            } else {
-                self::putenv("SPC_LINUX_DEFAULT_CC={$arch}-linux-musl-gcc");
-                self::putenv("SPC_LINUX_DEFAULT_CXX={$arch}-linux-musl-g++");
-                self::putenv("SPC_LINUX_DEFAULT_AR={$arch}-linux-musl-ar");
-                self::putenv("SPC_LINUX_DEFAULT_LD={$arch}-linux-musl-ld");
-                GlobalEnvManager::putenv("PATH=/usr/local/musl/bin:/usr/local/musl/{$arch}-linux-musl/bin:" . getenv('PATH'));
+        $ini = self::readIniFile();
+
+        $default_put_list = [];
+        foreach ($ini['global'] as $k => $v) {
+            if (getenv($k) === false) {
+                $default_put_list[$k] = $v;
+                self::putenv("{$k}={$v}");
+            }
+        }
+        $os_ini = match (PHP_OS_FAMILY) {
+            'Windows' => $ini['windows'] ?? [],
+            'Darwin' => $ini['macos'] ?? [],
+            'Linux' => $ini['linux'] ?? [],
+            'BSD' => $ini['freebsd'] ?? [],
+            default => [],
+        };
+        foreach ($os_ini as $k => $v) {
+            if (getenv($k) === false) {
+                $default_put_list[$k] = $v;
+                self::putenv("{$k}={$v}");
             }
         }
 
+        ToolchainManager::initToolchain();
+
+        // apply second time
+        $ini2 = self::readIniFile();
+
+        foreach ($ini2['global'] as $k => $v) {
+            if (isset($default_put_list[$k]) && $default_put_list[$k] !== $v) {
+                self::putenv("{$k}={$v}");
+            }
+        }
+        $os_ini2 = match (PHP_OS_FAMILY) {
+            'Windows' => $ini2['windows'] ?? [],
+            'Darwin' => $ini2['macos'] ?? [],
+            'Linux' => $ini2['linux'] ?? [],
+            'BSD' => $ini2['freebsd'] ?? [],
+            default => [],
+        };
+        foreach ($os_ini2 as $k => $v) {
+            if (isset($default_put_list[$k]) && $default_put_list[$k] !== $v) {
+                self::putenv("{$k}={$v}");
+            }
+        }
+    }
+
+    public static function putenv(string $val): void
+    {
+        f_putenv($val);
+        self::$env_cache[] = $val;
+    }
+
+    public static function addPathIfNotExists(string $path): void
+    {
+        if (is_unix() && !str_contains(getenv('PATH'), $path)) {
+            self::putenv("PATH={$path}:" . getenv('PATH'));
+        }
+    }
+
+    /**
+     * Initialize the toolchain after the environment variables are set.
+     * The toolchain or environment availability check is done here.
+     *
+     * @throws WrongUsageException
+     */
+    public static function afterInit(): void
+    {
+        if (!filter_var(getenv('SPC_SKIP_TOOLCHAIN_CHECK'), FILTER_VALIDATE_BOOL)) {
+            ToolchainManager::afterInitToolchain();
+        }
+    }
+
+    /**
+     * @throws WrongUsageException
+     */
+    private static function readIniFile(): array
+    {
         // Init env.ini file, read order:
         //      WORKING_DIR/config/env.ini
         //      ROOT_DIR/config/env.ini
@@ -100,28 +159,6 @@ class GlobalEnvManager
                 break;
             }
         }
-        self::applyConfig($ini['global']);
-        match (PHP_OS_FAMILY) {
-            'Windows' => self::applyConfig($ini['windows']),
-            'Darwin' => self::applyConfig($ini['macos']),
-            'Linux' => self::applyConfig($ini['linux']),
-            'BSD' => self::applyConfig($ini['freebsd']),
-            default => null,
-        };
-    }
-
-    public static function putenv(string $val): void
-    {
-        f_putenv($val);
-        self::$env_cache[] = $val;
-    }
-
-    private static function applyConfig(array $ini): void
-    {
-        foreach ($ini as $k => $v) {
-            if (getenv($k) === false) {
-                self::putenv($k . '=' . $v);
-            }
-        }
+        return $ini;
     }
 }

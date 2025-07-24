@@ -11,13 +11,13 @@ use SPC\builder\unix\UnixBuilderBase;
 use SPC\exception\FileSystemException;
 use SPC\exception\RuntimeException;
 use SPC\exception\WrongUsageException;
+use SPC\util\SPCTarget;
 
 class SourcePatcher
 {
     public static function init(): void
     {
         // FileSystem::addSourceExtractHook('swow', [SourcePatcher::class, 'patchSwow']);
-        FileSystem::addSourceExtractHook('micro', [SourcePatcher::class, 'patchMicro']);
         FileSystem::addSourceExtractHook('openssl', [SourcePatcher::class, 'patchOpenssl11Darwin']);
         FileSystem::addSourceExtractHook('swoole', [SourcePatcher::class, 'patchSwoole']);
         FileSystem::addSourceExtractHook('php-src', [SourcePatcher::class, 'patchPhpLibxml212']);
@@ -99,16 +99,13 @@ class SourcePatcher
         }
         // patch capstone
         FileSystem::replaceFileRegex(SOURCE_PATH . '/php-src/configure', '/have_capstone="yes"/', 'have_capstone="no"');
-        if ($builder instanceof LinuxBuilder && getenv('SPC_LIBC') === 'glibc') {
-            FileSystem::replaceFileStr(SOURCE_PATH . '/php-src/Zend/zend_operators.h', '# define ZEND_USE_ASM_ARITHMETIC 1', '# define ZEND_USE_ASM_ARITHMETIC 0');
-        }
     }
 
     /**
      * @throws RuntimeException
      * @throws FileSystemException
      */
-    public static function patchMicro(string $name = '', string $target = '', ?array $items = null): bool
+    public static function patchMicro(?array $items = null): bool
     {
         if (!file_exists(SOURCE_PATH . '/php-src/sapi/micro/php_micro.c')) {
             return false;
@@ -155,11 +152,7 @@ class SourcePatcher
 
         foreach ($patches as $patch) {
             logger()->info("Patching micro with {$patch}");
-            $patchesStr = str_replace('/', DIRECTORY_SEPARATOR, $patch);
-            f_passthru(
-                'cd ' . SOURCE_PATH . '/php-src && ' .
-                (PHP_OS_FAMILY === 'Windows' ? 'type' : 'cat') . ' ' . $patchesStr . ' | patch -p1 '
-            );
+            self::patchFile(SOURCE_PATH . "/php-src/{$patch}", SOURCE_PATH . '/php-src');
         }
 
         return true;
@@ -168,24 +161,32 @@ class SourcePatcher
     /**
      * Use existing patch file for patching
      *
-     * @param  string           $patch_name Patch file name in src/globals/patch/
+     * @param  string           $patch_name Patch file name in src/globals/patch/ or absolute path
      * @param  string           $cwd        Working directory for patch command
      * @param  bool             $reverse    Reverse patches (default: False)
      * @throws RuntimeException
      */
     public static function patchFile(string $patch_name, string $cwd, bool $reverse = false): bool
     {
-        if (!file_exists(ROOT_DIR . "/src/globals/patch/{$patch_name}")) {
+        if (FileSystem::isRelativePath($patch_name)) {
+            $patch_file = ROOT_DIR . "/src/globals/patch/{$patch_name}";
+        } else {
+            $patch_file = $patch_name;
+        }
+        if (!file_exists($patch_file)) {
             return false;
         }
 
-        $patch_file = ROOT_DIR . "/src/globals/patch/{$patch_name}";
-        $patch_str = str_replace('/', DIRECTORY_SEPARATOR, $patch_file);
+        $patch_str = FileSystem::convertPath($patch_file);
+        if (!file_exists($patch_str)) {
+            throw new RuntimeException("Patch file [{$patch_str}] does not exist");
+        }
 
         // Copy patch from phar
-        if (\Phar::running() !== '') {
-            file_put_contents(SOURCE_PATH . '/' . $patch_name, file_get_contents($patch_file));
-            $patch_str = str_replace('/', DIRECTORY_SEPARATOR, SOURCE_PATH . '/' . $patch_name);
+        if (str_starts_with($patch_str, 'phar://')) {
+            $filename = pathinfo($patch_file, PATHINFO_BASENAME);
+            file_put_contents(SOURCE_PATH . "/{$filename}", file_get_contents($patch_file));
+            $patch_str = FileSystem::convertPath(SOURCE_PATH . "/{$filename}");
         }
 
         // detect
@@ -459,7 +460,7 @@ class SourcePatcher
 
     public static function patchFfiCentos7FixO3strncmp(): bool
     {
-        if (PHP_OS_FAMILY !== 'Linux' || SystemUtil::getLibcVersionIfExists() > '2.17') {
+        if (!($ver = SPCTarget::getLibcVersion()) || version_compare($ver, '2.17', '>')) {
             return false;
         }
         if (!file_exists(SOURCE_PATH . '/php-src/main/php_version.h')) {
