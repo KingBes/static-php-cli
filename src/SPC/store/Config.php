@@ -4,12 +4,8 @@ declare(strict_types=1);
 
 namespace SPC\store;
 
-use SPC\exception\FileSystemException;
 use SPC\exception\WrongUsageException;
 
-/**
- * 一个读取 config 配置的操作类
- */
 class Config
 {
     public static ?array $pkg = null;
@@ -23,8 +19,10 @@ class Config
     public static ?array $pre_built = null;
 
     /**
-     * @throws WrongUsageException
-     * @throws FileSystemException
+     * Get pre-built configuration by name
+     *
+     * @param  string $name The name of the pre-built configuration
+     * @return mixed  The pre-built configuration or null if not found
      */
     public static function getPreBuilt(string $name): mixed
     {
@@ -50,9 +48,10 @@ class Config
     }
 
     /**
-     * 从配置文件读取一个资源(source)的元信息
+     * Get source configuration by name
      *
-     * @throws FileSystemException
+     * @param  string     $name The name of the source
+     * @return null|array The source configuration or null if not found
      */
     public static function getSource(string $name): ?array
     {
@@ -63,9 +62,10 @@ class Config
     }
 
     /**
-     * Read pkg from pkg.json
+     * Get package configuration by name
      *
-     * @throws FileSystemException
+     * @param  string     $name The name of the package
+     * @return null|array The package configuration or null if not found
      */
     public static function getPkg(string $name): ?array
     {
@@ -76,13 +76,13 @@ class Config
     }
 
     /**
-     * 根据不同的操作系统分别选择不同的 lib 库依赖项
-     * 如果 key 为 null，那么直接返回整个 meta。
-     * 如果 key 不为 null，则可以使用的 key 有 static-libs、headers、lib-depends、lib-suggests。
-     * 对于 macOS 平台，支持 frameworks。
+     * Get library configuration by name and optional key
+     * Supports platform-specific configurations for different operating systems
      *
-     * @throws FileSystemException
-     * @throws WrongUsageException
+     * @param  string      $name    The name of the library
+     * @param  null|string $key     The configuration key (static-libs, headers, lib-depends, lib-suggests, frameworks, bin)
+     * @param  mixed       $default Default value if key not found
+     * @return mixed       The library configuration or default value
      */
     public static function getLib(string $name, ?string $key = null, mixed $default = null)
     {
@@ -115,7 +115,9 @@ class Config
     }
 
     /**
-     * @throws FileSystemException
+     * Get all library configurations
+     *
+     * @return array All library configurations
      */
     public static function getLibs(): array
     {
@@ -126,8 +128,10 @@ class Config
     }
 
     /**
-     * @throws WrongUsageException
-     * @throws FileSystemException
+     * Get extension target configuration by name
+     *
+     * @param  string     $name The name of the extension
+     * @return null|array The extension target configuration or default ['static', 'shared']
      */
     public static function getExtTarget(string $name): ?array
     {
@@ -141,8 +145,13 @@ class Config
     }
 
     /**
-     * @throws FileSystemException
-     * @throws WrongUsageException
+     * Get extension configuration by name and optional key
+     * Supports platform-specific configurations for different operating systems
+     *
+     * @param  string      $name    The name of the extension
+     * @param  null|string $key     The configuration key (lib-depends, lib-suggests, ext-depends, ext-suggests, arg-type)
+     * @param  mixed       $default Default value if key not found
+     * @return mixed       The extension configuration or default value
      */
     public static function getExt(string $name, ?string $key = null, mixed $default = null)
     {
@@ -175,7 +184,9 @@ class Config
     }
 
     /**
-     * @throws FileSystemException
+     * Get all extension configurations
+     *
+     * @return array All extension configurations
      */
     public static function getExts(): array
     {
@@ -186,7 +197,9 @@ class Config
     }
 
     /**
-     * @throws FileSystemException
+     * Get all source configurations
+     *
+     * @return array All source configurations
      */
     public static function getSources(): array
     {

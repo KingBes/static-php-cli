@@ -5,16 +5,12 @@ declare(strict_types=1);
 namespace SPC\builder\extension;
 
 use SPC\builder\Extension;
-use SPC\exception\FileSystemException;
 use SPC\store\FileSystem;
 use SPC\util\CustomExt;
 
 #[CustomExt('readline')]
 class readline extends Extension
 {
-    /**
-     * @throws FileSystemException
-     */
     public function patchBeforeConfigure(): bool
     {
         FileSystem::replaceFileRegex(
@@ -27,7 +23,12 @@ class readline extends Extension
 
     public function getUnixConfigureArg(bool $shared = false): string
     {
-        return '--without-libedit --with-readline=' . BUILD_ROOT_PATH;
+        $enable = '--without-libedit --with-readline=' . BUILD_ROOT_PATH;
+        if ($this->builder->getPHPVersionID() < 84000) {
+            // the check uses `char rl_pending_input()` instead of `extern int rl_pending_input`, which makes LTO fail
+            $enable .= ' ac_cv_lib_readline_rl_pending_input=yes';
+        }
+        return $enable;
     }
 
     public function buildUnixShared(): void

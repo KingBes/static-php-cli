@@ -149,7 +149,7 @@ bin/spc craft --debug
 
 如果中途构建出错，你可以使用 `--debug` 参数查看详细的错误信息，或者使用 `--with-clean` 参数清除旧的编译结果，重新编译。
 
-如使用以上方式仍构建失败，请提交一个 issue，附上你的 `craft.yml`、`craft.log`。
+如使用以上方式仍构建失败，请提交一个 issue，附上你的 `craft.yml` 文件、`log/` 目录的压缩包。
 
 ## 分步构建命令
 
@@ -209,8 +209,8 @@ bin/spc download --from-zip=/path/to/your/download.zip
 让下载器强制使用你指定的链接下载此 source 的包。使用方法为 `{source-name}:{url}` 即可，可同时重写多个库的下载地址。在使用 `--for-extensions` 选项下载时同样可用。
 
 ```bash
-# 例如：指定下载测试版的 PHP8.3
-bin/spc download --all -U "php-src:https://downloads.php.net/~eric/php-8.3.0beta1.tar.gz"
+# 例如：指定下载 Alpha 版的 PHP8.5
+bin/spc download --all -U "php-src:https://downloads.php.net/~edorian/php-8.5.0alpha2.tar.xz"
 
 # 指定下载旧版本的 curl 库
 bin/spc download --all -U "curl:https://curl.se/download/curl-7.88.1.tar.gz"

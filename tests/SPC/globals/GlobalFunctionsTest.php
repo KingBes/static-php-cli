@@ -6,8 +6,7 @@ namespace SPC\Tests\globals;
 
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LogLevel;
-use SPC\exception\RuntimeException;
-use SPC\exception\WrongUsageException;
+use SPC\exception\ExecutionException;
 use ZM\Logger\ConsoleLogger;
 
 /**
@@ -41,9 +40,6 @@ class GlobalFunctionsTest extends TestCase
         $this->assertInstanceOf('Psr\Log\LoggerInterface', logger());
     }
 
-    /**
-     * @throws WrongUsageException
-     */
     public function testArch2Gnu(): void
     {
         $this->assertEquals('x86_64', arch2gnu('x86_64'));
@@ -61,16 +57,13 @@ class GlobalFunctionsTest extends TestCase
         $this->assertEquals("'hello'", quote('hello', "'"));
     }
 
-    /**
-     * @throws RuntimeException
-     */
     public function testFPassthru(): void
     {
         if (PHP_OS_FAMILY === 'Windows') {
             $this->markTestSkipped('Windows not support f_passthru');
         }
         $this->assertEquals(null, f_passthru('echo ""'));
-        $this->expectException('SPC\exception\RuntimeException');
+        $this->expectException(ExecutionException::class);
         f_passthru('false');
     }
 
@@ -86,16 +79,16 @@ class GlobalFunctionsTest extends TestCase
             $this->markTestSkipped('Windows not support shell');
         }
         $shell = shell();
-        $this->assertInstanceOf('SPC\util\UnixShell', $shell);
-        $this->assertInstanceOf('SPC\util\UnixShell', $shell->cd('/'));
-        $this->assertInstanceOf('SPC\util\UnixShell', $shell->exec('echo ""'));
-        $this->assertInstanceOf('SPC\util\UnixShell', $shell->setEnv(['SPC_TEST_ENV' => '1']));
+        $this->assertInstanceOf('SPC\util\shell\UnixShell', $shell);
+        $this->assertInstanceOf('SPC\util\shell\UnixShell', $shell->cd('/'));
+        $this->assertInstanceOf('SPC\util\shell\UnixShell', $shell->exec('echo ""'));
+        $this->assertInstanceOf('SPC\util\shell\UnixShell', $shell->setEnv(['SPC_TEST_ENV' => '1']));
 
         [$code, $out] = $shell->execWithResult('echo "_"');
         $this->assertEquals(0, $code);
         $this->assertEquals('_', implode('', $out));
 
-        $this->expectException('SPC\exception\RuntimeException');
+        $this->expectException('SPC\exception\ExecutionException');
         $shell->exec('false');
     }
 }

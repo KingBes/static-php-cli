@@ -43,19 +43,27 @@ swoole-hook-sqlite 不是一个扩展，而是 Swoole 的 Hook 特性。
 swoole-hook-sqlite 与 `pdo_sqlite` 扩展冲突。如需使用 Swoole 和 `pdo_sqlite`，请删除 pdo_sqlite 扩展，启用 `swoole` 和 `swoole-hook-sqlite` 即可。
 该扩展包含了 `pdo_sqlite` 的协程环境的实现。
 
+## swoole-hook-odbc
+
+swoole-hook-odbc 不是一个扩展，而是 Swoole 的 Hook 特性。
+如果你在编译时添加了 `swoole,swoole-hook-odbc`，你将启用 Swoole 的 `odbc` 扩展的协程模式。
+
+swoole-hook-odbc 与 `pdo_odbc` 扩展冲突。如需使用 Swoole 和 `pdo_odbc`，请删除 `pdo_odbc` 扩展，启用 `swoole` 和 `swoole-hook-odbc` 即可。
+该扩展包含了 `pdo_odbc` 的协程环境的实现。
+
 ## swow
 
-1. swow 仅支持 PHP 8.0 ~ 8.4 版本。
+1. swow 仅支持 PHP 8.0+ 版本。
 
 ## imagick
 
-imagick 扩展目前仅在 musl libc 上支持 OpenMP（libgomp）。使用 glibc 方式构建的 imagick 扩展无法支持多线程特性。
+1. OpenMP 支持已被禁用，这是维护者推荐的做法，系统软件包也是如此配置。
 
 ## imap
 
 1. 该扩展目前不支持 Kerberos。
 2. 由于底层的 c-client、ext-imap 不是线程安全的。 无法在 `--enable-zts` 构建中使用它。
-3. 由于该扩展可能会从未来的 PHP 中删除，因此我们建议您寻找替代实现，例如 [Webklex/php-imap](https://github.com/Webklex/php-imap)。
+3. 该扩展已在 PHP 8.4 中被移除，因此我们建议您寻找替代实现，例如 [Webklex/php-imap](https://github.com/Webklex/php-imap)。
 
 ## gd
 
@@ -114,8 +122,8 @@ pgsql 16.2 修复了这个 Bug，现在正常工作了。
 
 ## password-argon2
 
-1. password-argon2不是一个标准的扩展，它是 `password_hash` 函数的额外算法。
-2. 在Linux系统，password-argon2 的依赖库 `libargon2` 与 `libsodium` 库冲突。
+1. password-argon2不是一个标准的扩展。`password_hash` 函数的 `PASSWORD_ARGON2ID` 算法需要 libsodium 或 libargon2 才能工作。
+2. 使用 password-argon2 可以为此启用多线程支持。
 
 ## ffi
 

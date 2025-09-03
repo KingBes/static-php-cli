@@ -488,6 +488,7 @@
     "opcache": {
         "type": "builtin",
         "arg-type-unix": "custom",
+        "arg-type-windows": "enable",
         "zend-extension": true
     },
     "openssl": {
@@ -495,6 +496,7 @@
         "type": "builtin",
         "arg-type": "custom",
         "arg-type-windows": "with",
+        "build-with-php": true,
         "lib-depends": [
             "openssl",
             "zlib"
@@ -529,9 +531,10 @@
         },
         "notes": true,
         "type": "builtin",
-        "arg-type": "with-path",
+        "arg-type": "custom",
         "lib-depends": [
-            "libargon2"
+            "libargon2",
+            "openssl"
         ]
     },
     "pcntl": {
@@ -691,7 +694,8 @@
         "arg-type": "custom",
         "ext-suggests": [
             "session",
-            "igbinary"
+            "igbinary",
+            "msgpack"
         ],
         "lib-suggests-unix": [
             "zstd",
@@ -838,14 +842,23 @@
             "nghttp2",
             "zlib"
         ],
+        "lib-suggests": [
+            "zstd"
+        ],
+        "lib-suggests-linux": [
+            "zstd",
+            "liburing"
+        ],
         "ext-depends": [
             "openssl",
             "curl"
         ],
         "ext-suggests": [
+            "sockets",
             "swoole-hook-pgsql",
             "swoole-hook-mysql",
-            "swoole-hook-sqlite"
+            "swoole-hook-sqlite",
+            "swoole-hook-odbc"
         ]
     },
     "swoole-hook-mysql": {
@@ -855,11 +868,12 @@
         },
         "notes": true,
         "type": "addon",
-        "arg-type": "custom",
+        "arg-type": "none",
         "ext-depends": [
             "mysqlnd",
             "pdo",
-            "pdo_mysql"
+            "pdo_mysql",
+            "swoole"
         ],
         "ext-suggests": [
             "mysqli"
@@ -873,10 +887,11 @@
         },
         "notes": true,
         "type": "addon",
-        "arg-type": "custom",
+        "arg-type": "none",
         "ext-depends": [
             "pgsql",
-            "pdo"
+            "pdo",
+            "swoole"
         ]
     },
     "swoole-hook-sqlite": {
@@ -886,10 +901,27 @@
         },
         "notes": true,
         "type": "addon",
-        "arg-type": "custom",
+        "arg-type": "none",
         "ext-depends": [
             "sqlite3",
-            "pdo"
+            "pdo",
+            "swoole"
+        ]
+    },
+    "swoole-hook-odbc": {
+        "support": {
+            "Windows": "no",
+            "BSD": "wip"
+        },
+        "notes": true,
+        "type": "addon",
+        "arg-type": "none",
+        "ext-depends": [
+            "pdo",
+            "swoole"
+        ],
+        "lib-depends": [
+            "unixodbc"
         ]
     },
     "swow": {

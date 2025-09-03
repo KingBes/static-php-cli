@@ -4,18 +4,15 @@ declare(strict_types=1);
 
 namespace SPC\builder;
 
-use PharIo\FileSystem\File;
-use SPC\exception\ExceptionHandler;
-use SPC\exception\FileSystemException;
+use SPC\exception\BuildFailureException;
 use SPC\exception\InterruptException;
-use SPC\exception\RuntimeException;
 use SPC\exception\WrongUsageException;
 use SPC\store\Config;
 use SPC\store\FileSystem;
 use SPC\store\LockFile;
 use SPC\store\SourceManager;
 use SPC\store\SourcePatcher;
-use SPC\util\CustomExt;
+use SPC\util\AttributeMapper;
 
 abstract class BuilderBase
 {
@@ -46,20 +43,14 @@ abstract class BuilderBase
     /**
      * Convert libraries to class
      *
-     * @param  array<string>       $sorted_libraries Libraries to build (if not empty, must sort first)
-     * @throws FileSystemException
-     * @throws RuntimeException
-     * @throws WrongUsageException
+     * @param array<string> $sorted_libraries Libraries to build (if not empty, must sort first)
+     *
      * @internal
      */
     abstract public function proveLibs(array $sorted_libraries);
 
     /**
      * Set-Up libraries
-     *
-     * @throws FileSystemException
-     * @throws RuntimeException
-     * @throws WrongUsageException
      */
     public function setupLibs(): void
     {
@@ -70,12 +61,11 @@ abstract class BuilderBase
             match ($status) {
                 LIB_STATUS_OK => logger()->info('lib [' . $lib::NAME . '] setup success, took ' . round(microtime(true) - $starttime, 2) . ' s'),
                 LIB_STATUS_ALREADY => logger()->notice('lib [' . $lib::NAME . '] already built'),
-                LIB_STATUS_BUILD_FAILED => logger()->error('lib [' . $lib::NAME . '] build failed'),
                 LIB_STATUS_INSTALL_FAILED => logger()->error('lib [' . $lib::NAME . '] install failed'),
                 default => logger()->warning('lib [' . $lib::NAME . '] build status unknown'),
             };
             if (in_array($status, [LIB_STATUS_BUILD_FAILED, LIB_STATUS_INSTALL_FAILED])) {
-                throw new RuntimeException('Library [' . $lib::NAME . '] setup failed.');
+                throw new BuildFailureException('Library [' . $lib::NAME . '] setup failed.');
             }
         }
     }
@@ -139,9 +129,6 @@ abstract class BuilderBase
 
     /**
      * Check if there is a cpp extensions or libraries.
-     *
-     * @throws FileSystemException
-     * @throws WrongUsageException
      */
     public function hasCpp(): bool
     {
@@ -174,15 +161,10 @@ abstract class BuilderBase
     /**
      * Verify the list of "ext" extensions for validity and declare an Extension object to check the dependencies of the extensions.
      *
-     * @throws FileSystemException
-     * @throws RuntimeException
-     * @throws \ReflectionException
-     * @throws \Throwable|WrongUsageException
      * @internal
      */
     public function proveExts(array $static_extensions, array $shared_extensions = [], bool $skip_check_deps = false, bool $skip_extract = false): void
     {
-        CustomExt::loadCustomExt();
         // judge ext
         foreach ($static_extensions as $ext) {
             // if extension does not support static build, throw exception
@@ -213,7 +195,7 @@ abstract class BuilderBase
         }
 
         foreach ([...$static_extensions, ...$shared_extensions] as $extension) {
-            $class = CustomExt::getExtClass($extension);
+            $class = AttributeMapper::getExtensionClassByName($extension) ?? Extension::class;
             /** @var Extension $ext */
             $ext = new $class($extension, $this);
             if (in_array($extension, $static_extensions)) {
@@ -248,9 +230,7 @@ abstract class BuilderBase
     abstract public function testPHP(int $build_target = BUILD_TARGET_NONE);
 
     /**
-     * @throws WrongUsageException
-     * @throws RuntimeException
-     * @throws FileSystemException
+     * Build shared extensions.
      */
     public function buildSharedExts(): void
     {
@@ -264,6 +244,7 @@ abstract class BuilderBase
             }
         }
         file_put_contents(BUILD_BIN_PATH . '/php-config', implode('', $lines));
+        FileSystem::replaceFileStr(BUILD_LIB_PATH . '/php/build/phpize.m4', 'test "[$]$1" = "no" && $1=yes', '# test "[$]$1" = "no" && $1=yes');
         FileSystem::createDir(BUILD_MODULES_PATH);
         try {
             foreach ($this->getExts() as $ext) {
@@ -272,29 +253,26 @@ abstract class BuilderBase
                 }
                 $ext->buildShared();
             }
-        } catch (RuntimeException $e) {
+        } finally {
             FileSystem::replaceFileLineContainsString(BUILD_BIN_PATH . '/php-config', 'extension_dir=', $extension_dir_line);
-            throw $e;
         }
         FileSystem::replaceFileLineContainsString(BUILD_BIN_PATH . '/php-config', 'extension_dir=', $extension_dir_line);
+        FileSystem::replaceFileStr(BUILD_LIB_PATH . '/php/build/phpize.m4', '# test "[$]$1" = "no" && $1=yes', 'test "[$]$1" = "no" && $1=yes');
     }
 
     /**
      * Generate extension enable arguments for configure.
      * e.g. --enable-mbstring
-     *
-     * @throws FileSystemException
-     * @throws WrongUsageException
      */
     public function makeStaticExtensionArgs(): string
     {
         $ret = [];
         foreach ($this->getExts() as $ext) {
-            $arg = $ext->getConfigureArg();
+            $arg = null;
             if ($ext->isBuildShared() && !$ext->isBuildStatic()) {
                 if (
                     (Config::getExt($ext->getName(), 'type') === 'builtin' &&
-                    !file_exists(SOURCE_PATH . '/php-src/ext/' . $ext->getName() . '/config.m4')) ||
+                        !file_exists(SOURCE_PATH . '/php-src/ext/' . $ext->getName() . '/config.m4')) ||
                     Config::getExt($ext->getName(), 'build-with-php') === true
                 ) {
                     $arg = $ext->getConfigureArg(true);
@@ -302,6 +280,7 @@ abstract class BuilderBase
                     continue;
                 }
             }
+            $arg ??= $ext->getConfigureArg();
             logger()->info($ext->getName() . ' is using ' . $arg);
             $ret[] = trim($arg);
         }
@@ -319,9 +298,6 @@ abstract class BuilderBase
 
     /**
      * Get PHP Version ID from php-src/main/php_version.h
-     *
-     * @throws RuntimeException
-     * @throws WrongUsageException
      */
     public function getPHPVersionID(): int
     {
@@ -334,20 +310,25 @@ abstract class BuilderBase
             return intval($match[1]);
         }
 
-        throw new RuntimeException('PHP version file format is malformed, please remove it and download again');
+        throw new WrongUsageException('PHP version file format is malformed, please remove "./source/php-src" dir and download/extract again');
     }
 
-    public function getPHPVersion(): string
+    public function getPHPVersion(bool $exception_on_failure = true): string
     {
         if (!file_exists(SOURCE_PATH . '/php-src/main/php_version.h')) {
+            if (!$exception_on_failure) {
+                return 'unknown';
+            }
             throw new WrongUsageException('PHP source files are not available, you need to download them first');
         }
         $file = file_get_contents(SOURCE_PATH . '/php-src/main/php_version.h');
         if (preg_match('/PHP_VERSION "(.*)"/', $file, $match) !== 0) {
             return $match[1];
         }
-
-        throw new RuntimeException('PHP version file format is malformed, please remove it and download again');
+        if (!$exception_on_failure) {
+            return 'unknown';
+        }
+        throw new WrongUsageException('PHP version file format is malformed, please remove it and download again');
     }
 
     /**
@@ -364,7 +345,7 @@ abstract class BuilderBase
             }
             $file = LockFile::getLockFullPath($lock);
         }
-        if (preg_match('/php-(\d+\.\d+\.\d+(?:RC\d+)?)\.tar\.(?:gz|bz2|xz)/', $file, $match)) {
+        if (preg_match('/php-(\d+\.\d+\.\d+(?:RC\d+|alpha\d+|beta\d+)?)\.tar\.(?:gz|bz2|xz)/', $file, $match)) {
             return $match[1];
         }
         return false;
@@ -494,7 +475,7 @@ abstract class BuilderBase
         foreach ($patches as $patch) {
             try {
                 if (!file_exists($patch)) {
-                    throw new RuntimeException("Additional patch script file {$patch} not found!");
+                    throw new WrongUsageException("Additional patch script file {$patch} not found!");
                 }
                 logger()->debug('Running additional patch script: ' . $patch);
                 require $patch;
@@ -507,11 +488,6 @@ abstract class BuilderBase
                 exit($e->getCode());
             } catch (\Throwable $e) {
                 logger()->critical('Patch script ' . $patch . ' failed to run.');
-                if ($this->getOption('debug')) {
-                    ExceptionHandler::getInstance()->handle($e);
-                } else {
-                    logger()->critical('Please check with --debug option to see more details.');
-                }
                 throw $e;
             }
         }

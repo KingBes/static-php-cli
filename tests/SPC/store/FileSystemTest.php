@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace SPC\Tests\store;
 
 use PHPUnit\Framework\TestCase;
-use SPC\exception\FileSystemException;
-use SPC\exception\RuntimeException;
 use SPC\store\FileSystem;
 
 /**
@@ -30,9 +28,6 @@ class FileSystemTest extends TestCase
         }
     }
 
-    /**
-     * @throws FileSystemException
-     */
     public function testReplaceFileRegex()
     {
         $file = WORKING_DIR . '/.txt1';
@@ -54,9 +49,6 @@ class FileSystemTest extends TestCase
         }
     }
 
-    /**
-     * @throws FileSystemException
-     */
     public function testReadFile()
     {
         $file = WORKING_DIR . '/.testread';
@@ -66,9 +58,6 @@ class FileSystemTest extends TestCase
         @unlink($file);
     }
 
-    /**
-     * @throws FileSystemException
-     */
     public function testReplaceFileUser()
     {
         $file = WORKING_DIR . '/.txt1';
@@ -88,10 +77,6 @@ class FileSystemTest extends TestCase
         $this->assertEquals('', FileSystem::extname('/tmp/asd.'));
     }
 
-    /**
-     * @throws \ReflectionException
-     * @throws FileSystemException
-     */
     public function testGetClassesPsr4()
     {
         $classes = FileSystem::getClassesPsr4(ROOT_DIR . '/src/SPC/builder/extension', 'SPC\builder\extension');
@@ -109,9 +94,6 @@ class FileSystemTest extends TestCase
         }
     }
 
-    /**
-     * @throws FileSystemException
-     */
     public function testCreateDir()
     {
         FileSystem::createDir(WORKING_DIR . '/.testdir');
@@ -119,9 +101,6 @@ class FileSystemTest extends TestCase
         rmdir(WORKING_DIR . '/.testdir');
     }
 
-    /**
-     * @throws FileSystemException
-     */
     public function testReplaceFileStr()
     {
         $file = WORKING_DIR . '/.txt1';
@@ -133,9 +112,6 @@ class FileSystemTest extends TestCase
         unlink($file);
     }
 
-    /**
-     * @throws FileSystemException
-     */
     public function testResetDir()
     {
         // prepare fake git dir to test
@@ -146,10 +122,6 @@ class FileSystemTest extends TestCase
         FileSystem::removeDir(WORKING_DIR . '/.fake_down_test');
     }
 
-    /**
-     * @throws FileSystemException
-     * @throws RuntimeException
-     */
     public function testCopyDir()
     {
         // prepare fake git dir to test
@@ -162,9 +134,6 @@ class FileSystemTest extends TestCase
         FileSystem::removeDir(WORKING_DIR . '/.fake_down_test2');
     }
 
-    /**
-     * @throws FileSystemException
-     */
     public function testRemoveDir()
     {
         FileSystem::createDir(WORKING_DIR . '/.fake_down_test');
@@ -173,9 +142,6 @@ class FileSystemTest extends TestCase
         $this->assertDirectoryDoesNotExist(WORKING_DIR . '/.fake_down_test');
     }
 
-    /**
-     * @throws FileSystemException
-     */
     public function testLoadConfigArray()
     {
         $arr = FileSystem::loadConfigArray('lib');
@@ -200,9 +166,6 @@ class FileSystemTest extends TestCase
         $this->assertContains('lib.json', $files);
     }
 
-    /**
-     * @throws FileSystemException
-     */
     public function testWriteFile()
     {
         FileSystem::writeFile(WORKING_DIR . '/.txt', 'txt');

@@ -4,20 +4,13 @@ declare(strict_types=1);
 
 namespace SPC\builder\traits;
 
-use SPC\exception\FileSystemException;
-use SPC\exception\RuntimeException;
-use SPC\exception\WrongUsageException;
+use SPC\exception\PatchException;
 use SPC\store\Config;
 use SPC\store\FileSystem;
 use SPC\util\SPCConfigUtil;
 
 trait UnixLibraryTrait
 {
-    /**
-     * @throws RuntimeException
-     * @throws FileSystemException
-     * @throws WrongUsageException
-     */
     public function getStaticLibFiles(bool $include_self = true): string
     {
         $libs = $include_self ? [$this] : [];
@@ -28,11 +21,11 @@ trait UnixLibraryTrait
     }
 
     /**
-     * Patch pkgconfig file prefix
+     * Patch pkgconfig file prefix, exec_prefix, libdir, includedir for correct build.
      *
-     * @param  array               $files file list
-     * @throws FileSystemException
-     * @throws RuntimeException
+     * @param array      $files          File list to patch, if empty, will use pkg-configs from config (e.g. ['zlib.pc', 'openssl.pc'])
+     * @param int        $patch_option   Patch options
+     * @param null|array $custom_replace Custom replace rules, if provided, will be used to replace in the format [regex, replacement]
      */
     public function patchPkgconfPrefix(array $files = [], int $patch_option = PKGCONF_PATCH_ALL, ?array $custom_replace = null): void
     {
@@ -43,7 +36,7 @@ trait UnixLibraryTrait
         foreach ($files as $name) {
             $realpath = realpath(BUILD_ROOT_PATH . '/lib/pkgconfig/' . $name);
             if ($realpath === false) {
-                throw new RuntimeException('Cannot find library [' . static::NAME . '] pkgconfig file [' . $name . '] !');
+                throw new PatchException('pkg-config prefix patcher', 'Cannot find library [' . static::NAME . '] pkgconfig file [' . $name . '] in ' . BUILD_LIB_PATH . '/pkgconfig/ !');
             }
             logger()->debug('Patching ' . $realpath);
             // replace prefix
@@ -70,7 +63,7 @@ trait UnixLibraryTrait
             $realpath = realpath(BUILD_LIB_PATH . '/' . $name);
             if ($realpath === false) {
                 if ($throwOnMissing) {
-                    throw new RuntimeException('Cannot find library [' . static::NAME . '] la file [' . $name . '] !');
+                    throw new PatchException('la dependency patcher', 'Cannot find library [' . static::NAME . '] la file [' . $name . '] !');
                 }
                 logger()->warning('Cannot find library [' . static::NAME . '] la file [' . $name . '] !');
                 continue;
@@ -92,27 +85,31 @@ trait UnixLibraryTrait
     {
         $env = getenv($this->getSnakeCaseName() . '_CFLAGS') ?: '';
         if (!str_contains($env, $this->builder->arch_c_flags)) {
-            $env .= $this->builder->arch_c_flags;
+            $env .= ' ' . $this->builder->arch_c_flags;
         }
-        return $env;
-    }
-
-    public function getLibExtraLdFlags(): string
-    {
-        return getenv($this->getSnakeCaseName() . '_LDFLAGS') ?: '';
-    }
-
-    public function getLibExtraLibs(): string
-    {
-        return getenv($this->getSnakeCaseName() . '_LIBS') ?: '';
+        return trim($env);
     }
 
     public function getLibExtraCXXFlags(): string
     {
         $env = getenv($this->getSnakeCaseName() . '_CXXFLAGS') ?: '';
         if (!str_contains($env, $this->builder->arch_cxx_flags)) {
-            $env .= $this->builder->arch_cxx_flags;
+            $env .= ' ' . $this->builder->arch_cxx_flags;
         }
-        return $env;
+        return trim($env);
+    }
+
+    public function getLibExtraLdFlags(): string
+    {
+        $env = getenv($this->getSnakeCaseName() . '_LDFLAGS') ?: '';
+        if (!str_contains($env, $this->builder->arch_ld_flags)) {
+            $env .= ' ' . $this->builder->arch_ld_flags;
+        }
+        return trim($env);
+    }
+
+    public function getLibExtraLibs(): string
+    {
+        return getenv($this->getSnakeCaseName() . '_LIBS') ?: '';
     }
 }

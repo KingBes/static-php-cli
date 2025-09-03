@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace SPC\store;
 
-use SPC\exception\FileSystemException;
-use SPC\exception\RuntimeException;
+use SPC\exception\SPCInternalException;
 use SPC\exception\WrongUsageException;
 
 class LockFile
@@ -60,10 +59,8 @@ class LockFile
     /**
      * Put a lock entry into the lock file.
      *
-     * @param  string              $lock_name    Lock name to set or remove
-     * @param  null|array          $lock_content lock content to set, or null to remove the lock entry
-     * @throws FileSystemException
-     * @throws WrongUsageException
+     * @param string     $lock_name    Lock name to set or remove
+     * @param null|array $lock_content lock content to set, or null to remove the lock entry
      */
     public static function put(string $lock_name, ?array $lock_content): void
     {
@@ -84,9 +81,8 @@ class LockFile
     /**
      * Get the full path of a lock file or directory based on the lock options.
      *
-     * @param  array               $lock_options lock item options, must contain 'source_type', 'filename' or 'dirname'
-     * @return string              the absolute path to the lock file or directory
-     * @throws WrongUsageException
+     * @param  array  $lock_options lock item options, must contain 'source_type', 'filename' or 'dirname'
+     * @return string the absolute path to the lock file or directory
      */
     public static function getLockFullPath(array $lock_options): string
     {
@@ -122,9 +118,8 @@ class LockFile
     /**
      * Get the hash of the lock source based on the lock options.
      *
-     * @param  array            $lock_options Lock options
-     * @return string           Hash of the lock source
-     * @throws RuntimeException
+     * @param  array  $lock_options Lock options
+     * @return string Hash of the lock source
      */
     public static function getLockSourceHash(array $lock_options): string
     {
@@ -132,19 +127,17 @@ class LockFile
             SPC_SOURCE_ARCHIVE => sha1_file(DOWNLOAD_PATH . '/' . $lock_options['filename']),
             SPC_SOURCE_GIT => exec('cd ' . escapeshellarg(DOWNLOAD_PATH . '/' . $lock_options['dirname']) . ' && ' . SPC_GIT_EXEC . ' rev-parse HEAD'),
             SPC_SOURCE_LOCAL => 'LOCAL HASH IS ALWAYS DIFFERENT',
-            default => filter_var(getenv('SPC_IGNORE_BAD_HASH'), FILTER_VALIDATE_BOOLEAN) ? '' : throw new RuntimeException("Unknown source type: {$lock_options['source_type']}"),
+            default => filter_var(getenv('SPC_IGNORE_BAD_HASH'), FILTER_VALIDATE_BOOLEAN) ? '' : throw new SPCInternalException("Unknown source type: {$lock_options['source_type']}"),
         };
         if ($result === false && !filter_var(getenv('SPC_IGNORE_BAD_HASH'), FILTER_VALIDATE_BOOLEAN)) {
-            throw new RuntimeException("Failed to get hash for source: {$lock_options['source_type']}");
+            throw new SPCInternalException("Failed to get hash for source: {$lock_options['source_type']}");
         }
         return $result ?: '';
     }
 
     /**
-     * @param  array               $lock_options Lock options
-     * @param  string              $destination  Target directory
-     * @throws FileSystemException
-     * @throws RuntimeException
+     * @param array  $lock_options Lock options
+     * @param string $destination  Target directory
      */
     public static function putLockSourceHash(array $lock_options, string $destination): void
     {
@@ -167,9 +160,6 @@ class LockFile
      *     move_path: ?string,
      *     lock_as: int
      * } $data Source data
-     * @throws FileSystemException
-     * @throws RuntimeException
-     * @throws WrongUsageException
      */
     public static function lockSource(string $name, array $data): void
     {
@@ -191,7 +181,7 @@ class LockFile
                 $file_content = file_get_contents(self::LOCK_FILE);
                 self::$lock_file_content = json_decode($file_content, true);
                 if (self::$lock_file_content === null) {
-                    throw new \RuntimeException('Failed to decode lock file: ' . self::LOCK_FILE);
+                    throw new SPCInternalException('Failed to decode lock file: ' . self::LOCK_FILE);
                 }
             }
         }
@@ -200,9 +190,7 @@ class LockFile
     /**
      * Remove the lock file or directory if it exists.
      *
-     * @param  array               $lock_options lock item options, must contain 'source_type', 'filename' or 'dirname'
-     * @throws WrongUsageException
-     * @throws FileSystemException
+     * @param array $lock_options lock item options, must contain 'source_type', 'filename' or 'dirname'
      */
     private static function removeLockFileIfExists(array $lock_options): void
     {

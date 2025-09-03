@@ -733,7 +733,7 @@
     "micro": {
         "type": "git",
         "path": "php-src/sapi/micro",
-        "rev": "84beta",
+        "rev": "php-85-win",
         "url": "https://github.com/static-php/phpmicro",
         "license": {
             "type": "file",
@@ -932,6 +932,20 @@
             "path": "LICENSE"
         }
     },
+    "re2c": {
+        "type": "ghrel",
+        "repo": "skvadrik/re2c",
+        "match": "re2c.+\\.tar\\.xz",
+        "prefer-stable": true,
+        "alt": {
+            "type": "url",
+            "url": "https://dl.static-php.dev/static-php-cli/deps/re2c/re2c-4.3.tar.xz"
+        },
+        "license": {
+            "type": "file",
+            "path": "LICENSE"
+        }
+    },
     "readline": {
         "type": "filelist",
         "url": "https://ftp.gnu.org/pub/gnu/readline/",
@@ -996,33 +1010,29 @@
     },
     "swoole": {
         "path": "php-src/ext/swoole",
-        "type": "git",
-        "rev": "master",
-        "url": "https://github.com/swoole/swoole-src.git",
+        "type": "ghtar",
+        "repo": "swoole/swoole-src",
+        "match": "v6\\.+",
+        "prefer-stable": true,
         "license": {
             "type": "file",
             "path": "LICENSE"
-        },
-        "alt": {
-            "type": "ghtar",
-            "repo": "swoole/swoole-src",
-            "prefer-stable": true
         }
     },
     "swow": {
-        "type": "git",
         "path": "php-src/ext/swow-src",
-        "rev": "ci",
-        "url": "https://github.com/swow/swow",
+        "type": "ghtar",
+        "repo": "swow/swow",
+        "prefer-stable": true,
         "license": {
             "type": "file",
             "path": "LICENSE"
         }
     },
     "tidy": {
-        "type": "url",
-        "url": "https://github.com/htacg/tidy-html5/archive/refs/tags/5.8.0.tar.gz",
-        "filename": "tidy-html5.tgz",
+        "type": "ghtar",
+        "repo": "htacg/tidy-html5",
+        "prefer-stable": true,
         "license": {
             "type": "file",
             "path": "README/LICENSE.md"
@@ -1125,6 +1135,15 @@
         "license": {
             "type": "file",
             "path": "LICENSE"
+        }
+    },
+    "liburing": {
+        "type": "ghtar",
+        "repo": "axboe/liburing",
+        "prefer-stable": true,
+        "license": {
+            "type": "file",
+            "path": "COPYING"
         }
     }
 }

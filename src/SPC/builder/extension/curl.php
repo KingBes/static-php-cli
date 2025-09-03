@@ -8,17 +8,13 @@ use SPC\builder\Extension;
 use SPC\builder\linux\LinuxBuilder;
 use SPC\builder\macos\MacOSBuilder;
 use SPC\builder\windows\WindowsBuilder;
-use SPC\exception\FileSystemException;
-use SPC\exception\WrongUsageException;
+use SPC\exception\PatchException;
 use SPC\store\FileSystem;
 use SPC\util\CustomExt;
 
 #[CustomExt('curl')]
 class curl extends Extension
 {
-    /**
-     * @throws FileSystemException
-     */
     public function patchBeforeBuildconf(): bool
     {
         logger()->info('patching before-configure for curl checks');
@@ -46,10 +42,6 @@ class curl extends Extension
         return true;
     }
 
-    /**
-     * @throws FileSystemException
-     * @throws WrongUsageException
-     */
     public function patchBeforeConfigure(): bool
     {
         $frameworks = $this->builder instanceof MacOSBuilder ? ' ' . $this->builder->getFrameworks(true) . ' ' : '';
@@ -60,13 +52,14 @@ class curl extends Extension
 
     public function patchBeforeMake(): bool
     {
-        $extra_libs = getenv('SPC_EXTRA_LIBS');
+        $patched = parent::patchBeforeMake();
+        $extra_libs = getenv('SPC_EXTRA_LIBS') ?: '';
         if ($this->builder instanceof WindowsBuilder && !str_contains($extra_libs, 'secur32.lib')) {
             $extra_libs .= ' secur32.lib';
             putenv('SPC_EXTRA_LIBS=' . trim($extra_libs));
             return true;
         }
-        return false;
+        return $patched;
     }
 
     public function patchBeforeSharedConfigure(): bool
@@ -104,7 +97,7 @@ class curl extends Extension
         );
 
         if ($patched === null) {
-            throw new \RuntimeException('Failed to patch config.m4 due to a regex error');
+            throw new PatchException('shared extension curl patcher', 'Failed to patch config.m4 due to a regex error');
         }
 
         FileSystem::writeFile($file, $patched);

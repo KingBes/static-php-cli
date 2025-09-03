@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace SPC\builder\windows;
 
 use SPC\builder\BuilderBase;
-use SPC\exception\FileSystemException;
-use SPC\exception\RuntimeException;
+use SPC\exception\SPCInternalException;
+use SPC\exception\ValidationException;
 use SPC\exception\WrongUsageException;
 use SPC\store\Config;
 use SPC\store\FileSystem;
@@ -26,9 +26,6 @@ class WindowsBuilder extends BuilderBase
     /** @var bool Micro patch phar flag */
     private bool $phar_patched = false;
 
-    /**
-     * @throws FileSystemException
-     */
     public function __construct(array $options = [])
     {
         $this->options = $options;
@@ -45,7 +42,7 @@ class WindowsBuilder extends BuilderBase
         $this->zts = $this->getOption('enable-zts', false);
 
         // set concurrency
-        $this->concurrency = intval(getenv('SPC_CONCURRENCY'));
+        $this->concurrency = (int) getenv('SPC_CONCURRENCY');
 
         // make cmake toolchain
         $this->cmake_toolchain_file = SystemUtil::makeCmakeToolchainFile();
@@ -54,11 +51,6 @@ class WindowsBuilder extends BuilderBase
         f_mkdir(BUILD_LIB_PATH, recursive: true);
     }
 
-    /**
-     * @throws RuntimeException
-     * @throws WrongUsageException
-     * @throws FileSystemException
-     */
     public function buildPHP(int $build_target = BUILD_TARGET_NONE): void
     {
         $enableCli = ($build_target & BUILD_TARGET_CLI) === BUILD_TARGET_CLI;
@@ -89,6 +81,9 @@ class WindowsBuilder extends BuilderBase
             }
         }
 
+        $opcache_jit = !$this->getOption('disable-opcache-jit', false);
+        $opcache_jit_arg = $opcache_jit ? '--enable-opcache-jit=yes ' : '--enable-opcache-jit=no ';
+
         if (($logo = $this->getOption('with-micro-logo')) !== null) {
             // realpath
             // $logo = realpath($logo);
@@ -115,6 +110,7 @@ class WindowsBuilder extends BuilderBase
                 ($enableMicro ? ('--enable-micro=yes ' . $micro_logo . $micro_w32) : '--enable-micro=no ') .
                 ($enableEmbed ? '--enable-embed=yes ' : '--enable-embed=no ') .
                 $config_file_scan_dir .
+                $opcache_jit_arg .
                 "{$this->makeStaticExtensionArgs()} " .
                 $zts .
                 '"'
@@ -149,10 +145,6 @@ class WindowsBuilder extends BuilderBase
         $this->sanityCheck($build_target);
     }
 
-    /**
-     * @throws FileSystemException
-     * @throws RuntimeException
-     */
     public function buildCli(): void
     {
         SourcePatcher::patchWindowsCLITarget();
@@ -178,11 +170,6 @@ class WindowsBuilder extends BuilderBase
         */
     }
 
-    /**
-     * @throws FileSystemException
-     * @throws RuntimeException
-     * @throws WrongUsageException
-     */
     public function buildMicro(): void
     {
         // workaround for fiber (originally from https://github.com/dixyes/lwmbs/blob/master/windows/MicroBuild.php)
@@ -258,10 +245,6 @@ class WindowsBuilder extends BuilderBase
         $this->lib_list = $sorted_libraries;
     }
 
-    /**
-     * @throws FileSystemException
-     * @throws RuntimeException
-     */
     public function cleanMake(): void
     {
         FileSystem::writeFile(SOURCE_PATH . '\php-src\nmake_clean_wrapper.bat', 'nmake /nologo %*');
@@ -270,8 +253,6 @@ class WindowsBuilder extends BuilderBase
 
     /**
      * Run extension and PHP cli and micro check
-     *
-     * @throws RuntimeException
      */
     public function sanityCheck(mixed $build_target): void
     {
@@ -286,7 +267,7 @@ class WindowsBuilder extends BuilderBase
             logger()->info('running cli sanity check');
             [$ret, $output] = cmd()->execWithResult(BUILD_ROOT_PATH . '\bin\php.exe -n -r "echo \"hello\";"');
             if ($ret !== 0 || trim(implode('', $output)) !== 'hello') {
-                throw new RuntimeException('cli failed sanity check');
+                throw new ValidationException('cli failed sanity check', validation_module: 'php-cli function check');
             }
 
             foreach ($this->getExts(false) as $ext) {
@@ -309,7 +290,10 @@ class WindowsBuilder extends BuilderBase
                 foreach ($task['conditions'] as $condition => $closure) {
                     if (!$closure($ret, $out)) {
                         $raw_out = trim(implode('', $out));
-                        throw new RuntimeException("micro failed sanity check: {$task_name}, condition [{$condition}], ret[{$ret}], out[{$raw_out}]");
+                        throw new ValidationException(
+                            "failure info: {$condition}, code: {$ret}, output: {$raw_out}",
+                            validation_module: "phpmicro sanity check item [{$task_name}]"
+                        );
                     }
                 }
             }
@@ -317,11 +301,9 @@ class WindowsBuilder extends BuilderBase
     }
 
     /**
-     * 将编译好的二进制文件发布到 buildroot
+     * Deploy the binary file to buildroot/bin/
      *
-     * @param  int                 $type 发布类型
-     * @throws RuntimeException
-     * @throws FileSystemException
+     * @param int $type Deploy type
      */
     public function deployBinary(int $type): bool
     {
@@ -329,7 +311,7 @@ class WindowsBuilder extends BuilderBase
         $src = match ($type) {
             BUILD_TARGET_CLI => SOURCE_PATH . "\\php-src\\x64\\Release{$ts}\\php.exe",
             BUILD_TARGET_MICRO => SOURCE_PATH . "\\php-src\\x64\\Release{$ts}\\micro.sfx",
-            default => throw new RuntimeException('Deployment does not accept type ' . $type),
+            default => throw new SPCInternalException("Deployment does not accept type {$type}"),
         };
 
         // with-upx-pack for cli and micro
@@ -344,34 +326,6 @@ class WindowsBuilder extends BuilderBase
 
         cmd()->exec('copy ' . escapeshellarg($src) . ' ' . escapeshellarg(BUILD_ROOT_PATH . '\bin\\'));
         return true;
-    }
-
-    /**
-     * @throws WrongUsageException
-     * @throws FileSystemException
-     */
-    public function getAllStaticLibFiles(): array
-    {
-        $libs = [];
-
-        // reorder libs
-        foreach ($this->libs as $lib) {
-            foreach ($lib->getDependencies() as $dep) {
-                $libs[] = $dep;
-            }
-            $libs[] = $lib;
-        }
-
-        $libFiles = [];
-        $libNames = [];
-        // merge libs
-        foreach ($libs as $lib) {
-            if (!in_array($lib::NAME, $libNames, true)) {
-                $libNames[] = $lib::NAME;
-                array_unshift($libFiles, ...$lib->getStaticLibs());
-            }
-        }
-        return $libFiles;
     }
 
     /**

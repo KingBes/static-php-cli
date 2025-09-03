@@ -6,9 +6,11 @@ use SPC\builder\freebsd\SystemUtil as BSDSystemUtil;
 use SPC\builder\linux\SystemUtil as LinuxSystemUtil;
 use SPC\builder\macos\SystemUtil as MacOSSystemUtil;
 use SPC\builder\windows\SystemUtil as WindowsSystemUtil;
+use SPC\ConsoleApplication;
 use SPC\store\FileSystem;
-use SPC\util\GlobalEnvManager;
 
+// static-php-cli version string
+const SPC_VERSION = ConsoleApplication::VERSION;
 // output path for everything, other paths are defined relative to this by default
 define('BUILD_ROOT_PATH', FileSystem::convertPath(is_string($a = getenv('BUILD_ROOT_PATH')) ? $a : (WORKING_DIR . '/buildroot')));
 // output path for header files for development
@@ -44,14 +46,15 @@ define('SEPARATED_PATH', [
 ]);
 
 // add these to env vars with same name
-GlobalEnvManager::putenv('BUILD_ROOT_PATH=' . BUILD_ROOT_PATH);
-GlobalEnvManager::putenv('BUILD_INCLUDE_PATH=' . BUILD_INCLUDE_PATH);
-GlobalEnvManager::putenv('BUILD_LIB_PATH=' . BUILD_LIB_PATH);
-GlobalEnvManager::putenv('BUILD_BIN_PATH=' . BUILD_BIN_PATH);
-GlobalEnvManager::putenv('PKG_ROOT_PATH=' . PKG_ROOT_PATH);
-GlobalEnvManager::putenv('SOURCE_PATH=' . SOURCE_PATH);
-GlobalEnvManager::putenv('DOWNLOAD_PATH=' . DOWNLOAD_PATH);
-GlobalEnvManager::putenv('CPU_COUNT=' . CPU_COUNT);
-GlobalEnvManager::putenv('SPC_ARCH=' . php_uname('m'));
-GlobalEnvManager::putenv('GNU_ARCH=' . GNU_ARCH);
-GlobalEnvManager::putenv('MAC_ARCH=' . MAC_ARCH);
+putenv('SPC_VERSION=' . SPC_VERSION);
+putenv('BUILD_ROOT_PATH=' . BUILD_ROOT_PATH);
+putenv('BUILD_INCLUDE_PATH=' . BUILD_INCLUDE_PATH);
+putenv('BUILD_LIB_PATH=' . BUILD_LIB_PATH);
+putenv('BUILD_BIN_PATH=' . BUILD_BIN_PATH);
+putenv('PKG_ROOT_PATH=' . PKG_ROOT_PATH);
+putenv('SOURCE_PATH=' . SOURCE_PATH);
+putenv('DOWNLOAD_PATH=' . DOWNLOAD_PATH);
+putenv('CPU_COUNT=' . CPU_COUNT);
+putenv('SPC_ARCH=' . php_uname('m'));
+putenv('GNU_ARCH=' . GNU_ARCH);
+putenv('MAC_ARCH=' . MAC_ARCH);

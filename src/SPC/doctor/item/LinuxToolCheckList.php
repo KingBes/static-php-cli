@@ -9,14 +9,14 @@ use SPC\builder\traits\UnixSystemUtilTrait;
 use SPC\doctor\AsCheckItem;
 use SPC\doctor\AsFixItem;
 use SPC\doctor\CheckResult;
-use SPC\exception\RuntimeException;
+use SPC\exception\EnvironmentException;
 
 class LinuxToolCheckList
 {
     use UnixSystemUtilTrait;
 
     public const TOOLS_ALPINE = [
-        'make', 'bison', 'flex',
+        'make', 'bison', 're2c', 'flex',
         'git', 'autoconf', 'automake', 'gettext-dev',
         'tar', 'unzip', 'gzip',
         'bzip2', 'cmake', 'gcc',
@@ -26,7 +26,7 @@ class LinuxToolCheckList
     ];
 
     public const TOOLS_DEBIAN = [
-        'make', 'bison', 'flex',
+        'make', 'bison', 're2c', 'flex',
         'git', 'autoconf', 'automake', 'autopoint',
         'tar', 'unzip', 'gzip',
         'bzip2', 'cmake', 'patch',
@@ -35,12 +35,12 @@ class LinuxToolCheckList
     ];
 
     public const TOOLS_RHEL = [
-        'perl', 'make', 'bison', 'flex',
+        'perl', 'make', 'bison', 're2c', 'flex',
         'git', 'autoconf', 'automake',
         'tar', 'unzip', 'gzip', 'gcc',
         'bzip2', 'cmake', 'patch', 'which',
         'xz', 'libtool', 'gettext-devel',
-        'perl', 'patchelf',
+        'patchelf',
     ];
 
     public const TOOLS_ARCH = [
@@ -48,10 +48,12 @@ class LinuxToolCheckList
     ];
 
     private const PROVIDED_COMMAND = [
+        'perl' => '/usr/share/perl5/FindBin.pm',
         'binutils-gold' => 'ld.gold',
         'base-devel' => 'automake',
         'gettext-devel' => 'gettextize',
         'gettext-dev' => 'gettextize',
+        'perl-IPC-Cmd' => '/usr/share/doc/perl-IPC-Cmd',
     ];
 
     /** @noinspection PhpUnused */
@@ -69,21 +71,12 @@ class LinuxToolCheckList
         };
         $missing = [];
         foreach ($required as $package) {
-            if ($this->findCommand(self::PROVIDED_COMMAND[$package] ?? $package) === null) {
+            if (self::findCommand(self::PROVIDED_COMMAND[$package] ?? $package) === null) {
                 $missing[] = $package;
             }
         }
         if (!empty($missing)) {
-            return match ($distro['dist']) {
-                'ubuntu',
-                'alpine',
-                'redhat',
-                'centos',
-                'Deepin',
-                'arch',
-                'debian' => CheckResult::fail(implode(', ', $missing) . ' not installed on your system', 'install-linux-tools', [$distro, $missing]),
-                default => CheckResult::fail(implode(', ', $missing) . ' not installed on your system'),
-            };
+            return CheckResult::fail(implode(', ', $missing) . ' not installed on your system', 'install-linux-tools', [$distro, $missing]);
         }
         return CheckResult::ok();
     }
@@ -114,10 +107,6 @@ class LinuxToolCheckList
         return CheckResult::ok();
     }
 
-    /**
-     * @throws RuntimeException
-     * @noinspection PhpUnused
-     */
     #[AsFixItem('install-linux-tools')]
     public function fixBuildTools(array $distro, array $missing): bool
     {
@@ -127,22 +116,23 @@ class LinuxToolCheckList
             'redhat' => 'dnf install -y',
             'centos' => 'yum install -y',
             'arch' => 'pacman -S --noconfirm',
-            default => throw new RuntimeException('Current linux distro does not have an auto-install script for musl packages yet.'),
+            default => throw new EnvironmentException(
+                "Current linux distro [{$distro['dist']}] does not have an auto-install script for packages yet.",
+                'You can submit an issue to request support: https://github.com/crazywhalecc/static-php-cli/issues'
+            ),
         };
         $prefix = '';
         if (($user = exec('whoami')) !== 'root') {
             $prefix = 'sudo ';
-            logger()->warning('Current user (' . $user . ') is not root, using sudo for running command');
+            logger()->warning('Current user (' . $user . ') is not root, using sudo for running command (may require password input)');
         }
-        try {
-            $is_debian = in_array($distro['dist'], ['debian', 'ubuntu', 'Deepin']);
-            $to_install = $is_debian ? str_replace('xz', 'xz-utils', $missing) : $missing;
-            // debian, alpine libtool -> libtoolize
-            $to_install = str_replace('libtoolize', 'libtool', $to_install);
-            shell(true)->exec($prefix . $install_cmd . ' ' . implode(' ', $to_install));
-        } catch (RuntimeException) {
-            return false;
-        }
+
+        $is_debian = in_array($distro['dist'], ['debian', 'ubuntu', 'Deepin']);
+        $to_install = $is_debian ? str_replace('xz', 'xz-utils', $missing) : $missing;
+        // debian, alpine libtool -> libtoolize
+        $to_install = str_replace('libtoolize', 'libtool', $to_install);
+        shell(true)->exec($prefix . $install_cmd . ' ' . implode(' ', $to_install));
+
         return true;
     }
 }

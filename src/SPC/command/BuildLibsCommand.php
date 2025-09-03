@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace SPC\command;
 
 use SPC\builder\BuilderProvider;
-use SPC\exception\ExceptionHandler;
-use SPC\exception\RuntimeException;
 use SPC\store\Config;
 use SPC\util\DependencyUtil;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -33,9 +31,6 @@ class BuildLibsCommand extends BuildCommand
         parent::initialize($input, $output);
     }
 
-    /**
-     * @throws RuntimeException
-     */
     public function handle(): int
     {
         // 从参数中获取要编译的 libraries，并转换为数组
@@ -55,32 +50,22 @@ class BuildLibsCommand extends BuildCommand
             }
         }
 
-        try {
-            // 构建对象
-            $builder = BuilderProvider::makeBuilderByInput($this->input);
-            // 只编译 library 的情况下，标记
-            $builder->setLibsOnly();
-            // 编译和检查库完整
-            $libraries = DependencyUtil::getLibs($libraries);
-            $display_libs = array_filter($libraries, fn ($lib) => in_array(Config::getLib($lib, 'type', 'lib'), ['lib', 'package']));
+        // 构建对象
+        $builder = BuilderProvider::makeBuilderByInput($this->input);
+        // 只编译 library 的情况下，标记
+        $builder->setLibsOnly();
+        // 编译和检查库完整
+        $libraries = DependencyUtil::getLibs($libraries);
+        $display_libs = array_filter($libraries, fn ($lib) => in_array(Config::getLib($lib, 'type', 'lib'), ['lib', 'package']));
 
-            logger()->info('Building libraries: ' . implode(',', $display_libs));
-            sleep(2);
-            $builder->proveLibs($libraries);
-            $builder->validateLibsAndExts();
-            $builder->setupLibs();
+        logger()->info('Building libraries: ' . implode(',', $display_libs));
+        sleep(2);
+        $builder->proveLibs($libraries);
+        $builder->validateLibsAndExts();
+        $builder->setupLibs();
 
-            $time = round(microtime(true) - START_TIME, 3);
-            logger()->info('Build libs complete, used ' . $time . ' s !');
-            return static::SUCCESS;
-        } catch (\Throwable $e) {
-            if ($this->getOption('debug')) {
-                ExceptionHandler::getInstance()->handle($e);
-            } else {
-                logger()->critical('Build failed with ' . get_class($e) . ': ' . $e->getMessage());
-                logger()->critical('Please check with --debug option to see more details.');
-            }
-            return static::FAILURE;
-        }
+        $time = round(microtime(true) - START_TIME, 3);
+        logger()->info('Build libs complete, used ' . $time . ' s !');
+        return static::SUCCESS;
     }
 }

@@ -7,6 +7,7 @@ namespace SPC\toolchain;
 use SPC\builder\freebsd\SystemUtil as FreeBSDSystemUtil;
 use SPC\builder\linux\SystemUtil as LinuxSystemUtil;
 use SPC\builder\macos\SystemUtil as MacOSSystemUtil;
+use SPC\exception\EnvironmentException;
 use SPC\exception\WrongUsageException;
 use SPC\util\GlobalEnvManager;
 
@@ -17,7 +18,7 @@ class GccNativeToolchain implements ToolchainInterface
         GlobalEnvManager::putenv('SPC_LINUX_DEFAULT_CC=gcc');
         GlobalEnvManager::putenv('SPC_LINUX_DEFAULT_CXX=g++');
         GlobalEnvManager::putenv('SPC_LINUX_DEFAULT_AR=ar');
-        GlobalEnvManager::putenv('SPC_LINUX_DEFAULT_LD=ld.gold');
+        GlobalEnvManager::putenv('SPC_LINUX_DEFAULT_LD=ld');
     }
 
     public function afterInit(): void
@@ -31,8 +32,19 @@ class GccNativeToolchain implements ToolchainInterface
                 'Linux' => LinuxSystemUtil::findCommand($command) ?? throw new WrongUsageException("{$command} not found, please install it or set {$env} to a valid path."),
                 'Darwin' => MacOSSystemUtil::findCommand($command) ?? throw new WrongUsageException("{$command} not found, please install it or set {$env} to a valid path."),
                 'BSD' => FreeBSDSystemUtil::findCommand($command) ?? throw new WrongUsageException("{$command} not found, please install it or set {$env} to a valid path."),
-                default => throw new \RuntimeException(__CLASS__ . ' is not supported on ' . PHP_OS_FAMILY . '.'),
+                default => throw new EnvironmentException(__CLASS__ . ' is not supported on ' . PHP_OS_FAMILY . '.'),
             };
         }
+    }
+
+    public function getCompilerInfo(): ?string
+    {
+        $compiler = getenv('CC') ?: 'gcc';
+        $version = shell(false)->execWithResult("{$compiler} --version", false);
+        $head = pathinfo($compiler, PATHINFO_BASENAME);
+        if ($version[0] === 0 && preg_match('/gcc.*?(\d+\.\d+\.\d+)/', $version[1][0], $match)) {
+            return "{$head} {$match[1]}";
+        }
+        return $head;
     }
 }

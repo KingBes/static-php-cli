@@ -1,9 +1,6 @@
 {
     "lib-base": {
-        "type": "root",
-        "lib-depends-unix": [
-            "pkg-config"
-        ]
+        "type": "root"
     },
     "php": {
         "type": "root",
@@ -13,7 +10,13 @@
             "micro"
         ],
         "lib-suggests-linux": [
-            "libacl"
+            "libacl",
+            "brotli",
+            "watcher"
+        ],
+        "lib-suggests-unix": [
+            "brotli",
+            "watcher"
         ]
     },
     "micro": {
@@ -655,7 +658,7 @@
     "mimalloc": {
         "source": "mimalloc",
         "static-libs-unix": [
-            "mimalloc.o"
+            "libmimalloc.a"
         ]
     },
     "ncurses": {
@@ -738,8 +741,8 @@
     "openssl": {
         "source": "openssl",
         "static-libs-unix": [
-            "libcrypto.a",
-            "libssl.a"
+            "libssl.a",
+            "libcrypto.a"
         ],
         "static-libs-windows": [
             "libssl.lib",
@@ -795,6 +798,12 @@
         ],
         "headers-windows": [
             "depot.h"
+        ]
+    },
+    "re2c": {
+        "source": "re2c",
+        "bin-unix": [
+            "re2c"
         ]
     },
     "readline": {
@@ -912,6 +921,21 @@
         "headers-windows": [
             "zstd.h",
             "zstd_errors.h"
+        ]
+    },
+    "liburing": {
+        "source": "liburing",
+        "pkg-configs": [
+            "liburing",
+            "liburing-ffi"
+        ],
+        "static-libs-linux": [
+            "liburing.a",
+            "liburing-ffi.a"
+        ],
+        "headers-linux": [
+            "liburing/",
+            "liburing.h"
         ]
     }
 }

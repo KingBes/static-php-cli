@@ -17,23 +17,25 @@ $test_php_version = [
     // '8.2',
     // '8.3',
     '8.4',
+    // '8.5',
+    // 'git',
 ];
 
 // test os (macos-13, macos-14, macos-15, ubuntu-latest, windows-latest are available)
 $test_os = [
-    // 'macos-13', // bin/spc for x86_64
+    'macos-13', // bin/spc for x86_64
     // 'macos-14',  // bin/spc for arm64
     'macos-15', // bin/spc for arm64
     'ubuntu-latest', // bin/spc-alpine-docker for x86_64
-    // 'ubuntu-22.04', // bin/spc-gnu-docker for x86_64
+    'ubuntu-22.04', // bin/spc-gnu-docker for x86_64
     // 'ubuntu-24.04', // bin/spc for x86_64
     'ubuntu-22.04-arm', // bin/spc-gnu-docker for arm64
-    'ubuntu-24.04-arm', // bin/spc for arm64
+    // 'ubuntu-24.04-arm', // bin/spc for arm64
     // 'windows-latest', // .\bin\spc.ps1
 ];
 
 // whether enable thread safe
-$zts = false;
+$zts = true;
 
 $no_strip = false;
 
@@ -48,19 +50,19 @@ $prefer_pre_built = false;
 
 // If you want to test your added extensions and libs, add below (comma separated, example `bcmath,openssl`).
 $extensions = match (PHP_OS_FAMILY) {
-    'Linux', 'Darwin' => 'grpc',
-    'Windows' => 'curl',
+    'Linux', 'Darwin' => 'bcmath',
+    'Windows' => 'bcmath,bz2,calendar,ctype,curl,dom,exif,fileinfo,filter,ftp,iconv,xml,mbstring,mbregex,mysqlnd,openssl,pdo,pdo_mysql,pdo_sqlite,phar,session,simplexml,soap,sockets,sqlite3,tokenizer,xmlwriter,xmlreader,zlib,zip',
 };
 
 // If you want to test shared extensions, add them below (comma separated, example `bcmath,openssl`).
 $shared_extensions = match (PHP_OS_FAMILY) {
-    'Linux' => '',
+    'Linux' => 'zip',
     'Darwin' => '',
     'Windows' => '',
 };
 
 // If you want to test lib-suggests for all extensions and libraries, set it to true.
-$with_suggested_libs = false;
+$with_suggested_libs = true;
 
 // If you want to test extra libs for extensions, add them below (comma separated, example `libwebp,libavif`). Unnecessary, when $with_suggested_libs is true.
 $with_libs = match (PHP_OS_FAMILY) {
@@ -155,6 +157,9 @@ if ($shared_extensions) {
         case 'ubuntu-22.04':
         case 'ubuntu-22.04-arm':
             $shared_cmd = ' --build-shared=' . quote2($shared_extensions) . ' ';
+            break;
+        case 'ubuntu-24.04':
+        case 'ubuntu-24.04-arm':
             break;
         case 'macos-13':
         case 'macos-14':

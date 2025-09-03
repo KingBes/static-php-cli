@@ -172,7 +172,7 @@ If the build is successful, you will see the `buildroot/bin` directory in the cu
 If the build fails, you can use the `--debug` parameter to view detailed error information, 
 or use the `--with-clean` to clear the old compilation results and recompile.
 
-If the build still fails to use the above method, please submit an issue and attach your `craft.yml` and `craft.log`.
+If the build still fails to use the above method, please submit an issue and attach your `craft.yml` and `./log` archive.
 
 ## Step-by-step build command
 
@@ -242,8 +242,8 @@ Also, it is available when downloading with the `--for-extensions` option.
 
 
 ```bash
-# Specifying to download a beta version of PHP8.3
-bin/spc download --all -U "php-src:https://downloads.php.net/~eric/php-8.3.0beta1.tar.gz"
+# Specifying to download a alpha version of PHP 8.5
+bin/spc download --all -U "php-src:https://downloads.php.net/~edorian/php-8.5.0alpha2.tar.xz"
 
 # Specifying to download an older version of the curl library
 bin/spc download --all -U "curl:https://curl.se/download/curl-7.88.1.tar.gz"

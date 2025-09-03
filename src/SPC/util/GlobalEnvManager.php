@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace SPC\util;
 
-use SPC\exception\RuntimeException;
+use SPC\builder\macos\SystemUtil;
+use SPC\exception\SPCInternalException;
 use SPC\exception\WrongUsageException;
 use SPC\toolchain\ToolchainManager;
 
@@ -15,29 +16,31 @@ class GlobalEnvManager
 {
     private static array $env_cache = [];
 
+    private static bool $initialized = false;
+
     public static function getInitializedEnv(): array
     {
         return self::$env_cache;
     }
 
     /**
-     * Initialize the environment variables
-     *
-     * @throws RuntimeException
-     * @throws WrongUsageException
+     * Initialize the environment variables.
      */
     public static function init(): void
     {
+        if (self::$initialized) {
+            return;
+        }
         // Check pre-defined env vars exists
         if (getenv('BUILD_ROOT_PATH') === false) {
-            throw new RuntimeException('You must include src/globals/internal-env.php before using GlobalEnvManager');
+            throw new SPCInternalException('You must include src/globals/internal-env.php before using GlobalEnvManager');
         }
 
         // Define env vars for unix
         if (is_unix()) {
             self::addPathIfNotExists(BUILD_BIN_PATH);
-            self::putenv('PKG_CONFIG=' . BUILD_BIN_PATH . '/pkg-config');
-            self::putenv('PKG_CONFIG_PATH=' . BUILD_ROOT_PATH . '/lib/pkgconfig');
+            self::addPathIfNotExists(PKG_ROOT_PATH . '/bin');
+            self::putenv('PKG_CONFIG_PATH=' . BUILD_LIB_PATH . '/pkgconfig');
         }
 
         $ini = self::readIniFile();
@@ -85,6 +88,7 @@ class GlobalEnvManager
                 self::putenv("{$k}={$v}");
             }
         }
+        self::$initialized = true;
     }
 
     public static function putenv(string $val): void
@@ -103,19 +107,23 @@ class GlobalEnvManager
     /**
      * Initialize the toolchain after the environment variables are set.
      * The toolchain or environment availability check is done here.
-     *
-     * @throws WrongUsageException
      */
     public static function afterInit(): void
     {
         if (!filter_var(getenv('SPC_SKIP_TOOLCHAIN_CHECK'), FILTER_VALIDATE_BOOL)) {
             ToolchainManager::afterInitToolchain();
         }
+        // test bison
+        if (PHP_OS_FAMILY === 'Darwin') {
+            if ($bison = SystemUtil::findCommand('bison', ['/opt/homebrew/opt/bison/bin', '/usr/local/opt/bison/bin'])) {
+                self::putenv("BISON={$bison}");
+            }
+            if ($yacc = SystemUtil::findCommand('yacc', ['/opt/homebrew/opt/bison/bin', '/usr/local/opt/bison/bin'])) {
+                self::putenv("YACC={$yacc}");
+            }
+        }
     }
 
-    /**
-     * @throws WrongUsageException
-     */
     private static function readIniFile(): array
     {
         // Init env.ini file, read order:

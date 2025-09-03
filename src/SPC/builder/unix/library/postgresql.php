@@ -5,17 +5,13 @@ declare(strict_types=1);
 namespace SPC\builder\unix\library;
 
 use SPC\builder\linux\library\LinuxLibraryBase;
+use SPC\exception\BuildFailureException;
 use SPC\exception\FileSystemException;
-use SPC\exception\RuntimeException;
 use SPC\store\FileSystem;
 use SPC\util\SPCTarget;
 
 trait postgresql
 {
-    /**
-     * @throws RuntimeException
-     * @throws FileSystemException
-     */
     protected function build(): void
     {
         $builddir = BUILD_ROOT_PATH;
@@ -64,7 +60,7 @@ trait postgresql
             $envs .= " LIBS=\"{$libs}{$libcpp}\" ";
         }
         if ($error_exec_cnt > 0) {
-            throw new RuntimeException('Failed to get pkg-config information!');
+            throw new BuildFailureException('Failed to get pkg-config information!');
         }
 
         FileSystem::resetDir($this->source_dir . '/build');
@@ -78,7 +74,7 @@ trait postgresql
                 ->exec('sed -i.backup "278 s/^/# /"  ../src/Makefile.shlib')
                 ->exec('sed -i.backup "402 s/^/# /"  ../src/Makefile.shlib');
         } else {
-            throw new RuntimeException('Unsupported version for postgresql: ' . $version . ' !');
+            throw new BuildFailureException('Unsupported version for postgresql: ' . $version . ' !');
         }
 
         // configure

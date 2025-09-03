@@ -24,9 +24,6 @@ class imap extends Extension
         return false;
     }
 
-    /**
-     * @throws WrongUsageException
-     */
     public function validate(): void
     {
         if ($this->builder->getOption('enable-zts')) {
@@ -45,10 +42,11 @@ class imap extends Extension
 
     public function patchBeforeMake(): bool
     {
+        $patched = parent::patchBeforeMake();
         if (PHP_OS_FAMILY !== 'Linux' || SystemUtil::isMuslDist()) {
-            return false;
+            return $patched;
         }
-        $extra_libs = trim(getenv('SPC_EXTRA_LIBS') . ' -lcrypt');
+        $extra_libs = trim((getenv('SPC_EXTRA_LIBS') ?: '') . ' -lcrypt');
         f_putenv('SPC_EXTRA_LIBS=' . $extra_libs);
         return true;
     }

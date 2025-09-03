@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace SPC\builder\windows;
 
-use SPC\exception\FileSystemException;
 use SPC\store\FileSystem;
 
 class SystemUtil
@@ -75,9 +74,8 @@ class SystemUtil
     /**
      * Create CMake toolchain file.
      *
-     * @param  null|string         $cflags  CFLAGS for cmake, default use '/MT /Os /Ob1 /DNDEBUG /D_ACRTIMP= /D_CRTIMP='
-     * @param  null|string         $ldflags LDFLAGS for cmake, default use '/nodefaultlib:msvcrt /nodefaultlib:msvcrtd /defaultlib:libcmt'
-     * @throws FileSystemException
+     * @param null|string $cflags  CFLAGS for cmake, default use '/MT /Os /Ob1 /DNDEBUG /D_ACRTIMP= /D_CRTIMP='
+     * @param null|string $ldflags LDFLAGS for cmake, default use '/nodefaultlib:msvcrt /nodefaultlib:msvcrtd /defaultlib:libcmt'
      */
     public static function makeCmakeToolchainFile(?string $cflags = null, ?string $ldflags = null): string
     {

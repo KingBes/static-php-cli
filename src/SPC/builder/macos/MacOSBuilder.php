@@ -6,8 +6,6 @@ namespace SPC\builder\macos;
 
 use SPC\builder\macos\library\MacOSLibraryBase;
 use SPC\builder\unix\UnixBuilderBase;
-use SPC\exception\FileSystemException;
-use SPC\exception\RuntimeException;
 use SPC\exception\WrongUsageException;
 use SPC\store\FileSystem;
 use SPC\store\SourcePatcher;
@@ -19,11 +17,6 @@ class MacOSBuilder extends UnixBuilderBase
     /** @var bool Micro patch phar flag */
     private bool $phar_patched = false;
 
-    /**
-     * @throws RuntimeException
-     * @throws WrongUsageException
-     * @throws FileSystemException
-     */
     public function __construct(array $options = [])
     {
         $this->options = $options;
@@ -38,6 +31,7 @@ class MacOSBuilder extends UnixBuilderBase
         // cflags
         $this->arch_c_flags = getenv('SPC_DEFAULT_C_FLAGS');
         $this->arch_cxx_flags = getenv('SPC_DEFAULT_CXX_FLAGS');
+        $this->arch_ld_flags = getenv('SPC_DEFAULT_LD_FLAGS');
 
         // create pkgconfig and include dir (some libs cannot create them automatically)
         f_mkdir(BUILD_LIB_PATH . '/pkgconfig', recursive: true);
@@ -47,9 +41,7 @@ class MacOSBuilder extends UnixBuilderBase
     /**
      * Get dynamically linked macOS frameworks
      *
-     * @param  bool                $asString If true, return as string
-     * @throws FileSystemException
-     * @throws WrongUsageException
+     * @param bool $asString If true, return as string
      */
     public function getFrameworks(bool $asString = false): array|string
     {
@@ -82,10 +74,7 @@ class MacOSBuilder extends UnixBuilderBase
     /**
      * Just start to build statically linked php binary
      *
-     * @param  int                 $build_target build target
-     * @throws FileSystemException
-     * @throws RuntimeException
-     * @throws WrongUsageException
+     * @param int $build_target build target
      */
     public function buildPHP(int $build_target = BUILD_TARGET_NONE): void
     {
@@ -97,7 +86,8 @@ class MacOSBuilder extends UnixBuilderBase
         $this->emitPatchPoint('before-php-configure');
         SourcePatcher::patchBeforeConfigure($this);
 
-        $json_74 = $this->getPHPVersionID() < 80000 ? '--enable-json ' : '';
+        $phpVersionID = $this->getPHPVersionID();
+        $json_74 = $phpVersionID < 80000 ? '--enable-json ' : '';
         $zts = $this->getOption('enable-zts', false) ? '--enable-zts --disable-zend-signals ' : '';
 
         $config_file_path = $this->getOption('with-config-file-path', false) ?
@@ -112,12 +102,10 @@ class MacOSBuilder extends UnixBuilderBase
         $enableFrankenphp = ($build_target & BUILD_TARGET_FRANKENPHP) === BUILD_TARGET_FRANKENPHP;
 
         // prepare build php envs
-        $mimallocLibs = $this->getLib('mimalloc') !== null ? BUILD_LIB_PATH . '/mimalloc.o ' : '';
         $envs_build_php = SystemUtil::makeEnvVarString([
             'CFLAGS' => getenv('SPC_CMD_VAR_PHP_CONFIGURE_CFLAGS'),
-            'CPPFLAGS' => getenv('SPC_CMD_VAR_PHP_CONFIGURE_CPPFLAGS'),
-            'LDFLAGS' => getenv('SPC_CMD_VAR_PHP_CONFIGURE_LDFLAGS'),
-            'LIBS' => $mimallocLibs . getenv('SPC_CMD_VAR_PHP_CONFIGURE_LIBS'),
+            'CPPFLAGS' => '-I' . BUILD_INCLUDE_PATH,
+            'LDFLAGS' => '-L' . BUILD_LIB_PATH,
         ]);
 
         if ($this->getLib('postgresql')) {
@@ -168,6 +156,11 @@ class MacOSBuilder extends UnixBuilderBase
             }
             $this->buildEmbed();
         }
+        $shared_extensions = array_map('trim', array_filter(explode(',', $this->getOption('build-shared'))));
+        if (!empty($shared_extensions)) {
+            logger()->info('Building shared extensions ...');
+            $this->buildSharedExts();
+        }
         if ($enableFrankenphp) {
             logger()->info('building frankenphp');
             $this->buildFrankenphp();
@@ -182,9 +175,6 @@ class MacOSBuilder extends UnixBuilderBase
 
     /**
      * Build cli sapi
-     *
-     * @throws RuntimeException
-     * @throws FileSystemException
      */
     protected function buildCli(): void
     {
@@ -201,10 +191,6 @@ class MacOSBuilder extends UnixBuilderBase
 
     /**
      * Build phpmicro sapi
-     *
-     * @throws FileSystemException
-     * @throws RuntimeException
-     * @throws WrongUsageException
      */
     protected function buildMicro(): void
     {
@@ -240,9 +226,6 @@ class MacOSBuilder extends UnixBuilderBase
 
     /**
      * Build fpm sapi
-     *
-     * @throws RuntimeException
-     * @throws FileSystemException
      */
     protected function buildFpm(): void
     {
@@ -258,8 +241,6 @@ class MacOSBuilder extends UnixBuilderBase
 
     /**
      * Build embed sapi
-     *
-     * @throws RuntimeException
      */
     protected function buildEmbed(): void
     {
@@ -269,8 +250,10 @@ class MacOSBuilder extends UnixBuilderBase
             ->exec(getenv('SPC_CMD_PREFIX_PHP_MAKE') . ' INSTALL_ROOT=' . BUILD_ROOT_PATH . " {$vars} install");
 
         if (getenv('SPC_CMD_VAR_PHP_EMBED_TYPE') === 'static') {
-            shell()->cd(SOURCE_PATH . '/php-src')
-                ->exec('ar -t ' . BUILD_LIB_PATH . "/libphp.a | grep '\\.a$' | xargs -n1 ar d " . BUILD_LIB_PATH . '/libphp.a');
+            $AR = getenv('AR') ?: 'ar';
+            f_passthru("{$AR} -t " . BUILD_LIB_PATH . "/libphp.a | grep '\\.a$' | xargs -n1 {$AR} d " . BUILD_LIB_PATH . '/libphp.a');
+            // export dynamic symbols
+            SystemUtil::exportDynamicSymbols(BUILD_LIB_PATH . '/libphp.a');
         }
         $this->patchPhpScripts();
     }
@@ -280,6 +263,7 @@ class MacOSBuilder extends UnixBuilderBase
         $config = (new SPCConfigUtil($this, ['libs_only_deps' => true]))->config($this->ext_list, $this->lib_list, $this->getOption('with-suggested-exts'), $this->getOption('with-suggested-libs'));
         return [
             'EXTRA_CFLAGS' => getenv('SPC_CMD_VAR_PHP_MAKE_EXTRA_CFLAGS'),
+            'EXTRA_LDFLAGS_PROGRAM' => '-L' . BUILD_LIB_PATH,
             'EXTRA_LIBS' => $config['libs'],
         ];
     }

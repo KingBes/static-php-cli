@@ -6,7 +6,6 @@ namespace SPC\builder\extension;
 
 use SPC\builder\Extension;
 use SPC\builder\macos\MacOSBuilder;
-use SPC\exception\FileSystemException;
 use SPC\store\FileSystem;
 use SPC\util\CustomExt;
 
@@ -27,24 +26,20 @@ class event extends Extension
         return $arg;
     }
 
-    /**
-     * @throws FileSystemException
-     */
     public function patchBeforeConfigure(): bool
     {
         FileSystem::replaceFileRegex(SOURCE_PATH . '/php-src/configure', '/-levent_openssl/', $this->getLibFilesString());
         return true;
     }
 
-    /**
-     * @throws FileSystemException
-     */
     public function patchBeforeMake(): bool
     {
+        $patched = parent::patchBeforeMake();
         // Prevent event extension compile error on macOS
         if ($this->builder instanceof MacOSBuilder) {
             FileSystem::replaceFileRegex(SOURCE_PATH . '/php-src/main/php_config.h', '/^#define HAVE_OPENPTY 1$/m', '');
+            return true;
         }
-        return true;
+        return $patched;
     }
 }

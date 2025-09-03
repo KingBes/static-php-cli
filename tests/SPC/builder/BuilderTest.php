@@ -4,17 +4,15 @@ declare(strict_types=1);
 
 namespace SPC\Tests\builder;
 
-use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use SPC\builder\BuilderBase;
 use SPC\builder\BuilderProvider;
 use SPC\builder\Extension;
 use SPC\builder\LibraryBase;
-use SPC\exception\RuntimeException;
 use SPC\exception\WrongUsageException;
 use SPC\store\FileSystem;
 use SPC\store\LockFile;
-use SPC\util\CustomExt;
+use SPC\util\AttributeMapper;
 use SPC\util\DependencyUtil;
 use Symfony\Component\Console\Input\ArgvInput;
 
@@ -36,9 +34,8 @@ class BuilderTest extends TestCase
         $this->builder = BuilderProvider::makeBuilderByInput(new ArgvInput());
         [$extensions, $libs] = DependencyUtil::getExtsAndLibs(['mbregex']);
         $this->builder->proveLibs($libs);
-        CustomExt::loadCustomExt();
         foreach ($extensions as $extension) {
-            $class = CustomExt::getExtClass($extension);
+            $class = AttributeMapper::getExtensionClassByName($extension) ?? Extension::class;
             $ext = new $class($extension, $this->builder);
             $this->builder->addExt($ext);
         }
@@ -90,7 +87,7 @@ class BuilderTest extends TestCase
             if ($cnt !== 0) {
                 $this->assertEquals(intval($match[1]), $this->builder->getPHPVersionID());
             } else {
-                $this->expectException(RuntimeException::class);
+                $this->expectException(WrongUsageException::class);
                 $this->builder->getPHPVersionID();
             }
         } else {
@@ -103,11 +100,11 @@ class BuilderTest extends TestCase
     {
         if (file_exists(SOURCE_PATH . '/php-src/main/php_version.h')) {
             $file = SOURCE_PATH . '/php-src/main/php_version.h';
-            $cnt = preg_match('/PHP_VERSION "(\d+\.\d+\.\d+)"/', file_get_contents($file), $match);
+            $cnt = preg_match('/PHP_VERSION "(\d+\.\d+\.\d+(?:-[^"]+)?)/', file_get_contents($file), $match);
             if ($cnt !== 0) {
                 $this->assertEquals($match[1], $this->builder->getPHPVersion());
             } else {
-                $this->expectException(RuntimeException::class);
+                $this->expectException(WrongUsageException::class);
                 $this->builder->getPHPVersion();
             }
         } else {
@@ -248,7 +245,7 @@ class BuilderTest extends TestCase
     public function testEmitPatchPointNotExists()
     {
         $this->expectOutputRegex('/failed to run/');
-        $this->expectException(RuntimeException::class);
+        $this->expectException(WrongUsageException::class);
         $this->builder->setOption('with-added-patch', ['/tmp/patch-point.not_exsssists.php']);
         $this->builder->emitPatchPoint('not-exists');
     }

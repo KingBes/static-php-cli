@@ -4,20 +4,12 @@ declare(strict_types=1);
 
 namespace SPC\builder\unix\library;
 
-use SPC\exception\FileSystemException;
-use SPC\exception\RuntimeException;
-use SPC\exception\WrongUsageException;
 use SPC\store\FileSystem;
 use SPC\util\executor\UnixAutoconfExecutor;
 use SPC\util\SPCTarget;
 
 trait imagemagick
 {
-    /**
-     * @throws RuntimeException
-     * @throws FileSystemException
-     * @throws WrongUsageException
-     */
     protected function build(): void
     {
         $ac = UnixAutoconfExecutor::create($this)
@@ -33,6 +25,7 @@ trait imagemagick
             ->optionalLib('freetype', ...ac_with_args('freetype'))
             ->optionalLib('bzip2', ...ac_with_args('bzlib'))
             ->optionalLib('libjxl', ...ac_with_args('jxl'))
+            ->optionalLib('jbig', ...ac_with_args('jbig'))
             ->addConfigureArgs(
                 '--disable-openmp',
                 '--without-x',

@@ -8,6 +8,8 @@ parameters:
     - '#class Fiber#'
     - '#Attribute class JetBrains\\PhpStorm\\ArrayShape does not exist#'
     - '#Function Swoole\\Coroutine\\run not found.#'
+    - '#Static call to instance method ZM\\Logger\\ConsoleColor#'
+    - '#Constant GNU_ARCH not found#'
   dynamicConstantNames:
     - PHP_OS_FAMILY
   excludePaths:

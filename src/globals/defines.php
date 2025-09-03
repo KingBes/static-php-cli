@@ -90,5 +90,10 @@ const SPC_SOURCE_ARCHIVE = 'archive'; // download as archive
 const SPC_SOURCE_GIT = 'git'; // download as git repository
 const SPC_SOURCE_LOCAL = 'local'; // download as local directory
 
+// spc logs dir
+const SPC_LOGS_DIR = WORKING_DIR . DIRECTORY_SEPARATOR . 'log';
+const SPC_OUTPUT_LOG = SPC_LOGS_DIR . DIRECTORY_SEPARATOR . 'spc.output.log';
+const SPC_SHELL_LOG = SPC_LOGS_DIR . DIRECTORY_SEPARATOR . 'spc.shell.log';
+
 ConsoleLogger::$date_format = 'H:i:s';
 ConsoleLogger::$format = '[%date%] [%level_short%] %body%';
