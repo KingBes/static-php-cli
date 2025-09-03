@@ -124,12 +124,12 @@ jobs:
               RUNS_ON="ubuntu-24.04-arm"
               ;;
             linux-x86_64-glibc)
-              DOWN_CMD="./bin/spc doctor --auto-fix && ./bin/spc-gnu-docker download"
+              DOWN_CMD="./bin/spc-gnu-docker download"
               BUILD_CMD="./bin/spc-gnu-docker build"
               RUNS_ON="ubuntu-22.04"
               ;;
             linux-aarch64-glibc)
-              DOWN_CMD="./bin/spc doctor --auto-fix && ./bin/spc-gnu-docker download"
+              DOWN_CMD="./bin/spc-gnu-docker download"
               BUILD_CMD="./bin/spc-gnu-docker build"
               RUNS_ON="ubuntu-22.04-arm"
               ;;
