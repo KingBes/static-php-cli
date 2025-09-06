@@ -10,8 +10,6 @@ use SPC\exception\SPCInternalException;
 use SPC\exception\ValidationException;
 use SPC\exception\WrongUsageException;
 use SPC\store\Config;
-use SPC\store\CurlHook;
-use SPC\store\Downloader;
 use SPC\store\FileSystem;
 use SPC\store\pkg\GoXcaddy;
 use SPC\toolchain\GccNativeToolchain;
@@ -122,6 +120,16 @@ abstract class UnixBuilderBase extends BuilderBase
             }
         }
 
+        // sanity check for php-cgi
+        if (($build_target & BUILD_TARGET_CGI) === BUILD_TARGET_CGI) {
+            logger()->info('running cgi sanity check');
+            [$ret, $output] = shell()->execWithResult("echo '<?php echo \"<h1>Hello, World!</h1>\";' | " . BUILD_BIN_PATH . '/php-cgi -n');
+            $raw_output = implode('', $output);
+            if ($ret !== 0 || !str_contains($raw_output, 'Hello, World!') || !str_contains($raw_output, 'text/html')) {
+                throw new ValidationException("cgi failed sanity check. code: {$ret}, output: {$raw_output}", validation_module: 'php-cgi sanity check');
+            }
+        }
+
         // sanity check for embed
         if (($build_target & BUILD_TARGET_EMBED) === BUILD_TARGET_EMBED) {
             logger()->info('running embed sanity check');
@@ -209,6 +217,7 @@ abstract class UnixBuilderBase extends BuilderBase
             BUILD_TARGET_CLI => SOURCE_PATH . '/php-src/sapi/cli/php',
             BUILD_TARGET_MICRO => SOURCE_PATH . '/php-src/sapi/micro/micro.sfx',
             BUILD_TARGET_FPM => SOURCE_PATH . '/php-src/sapi/fpm/php-fpm',
+            BUILD_TARGET_CGI => SOURCE_PATH . '/php-src/sapi/cgi/php-cgi',
             default => throw new SPCInternalException("Deployment does not accept type {$type}"),
         };
         logger()->info('Deploying ' . $this->getBuildTypeName($type) . ' file');
@@ -257,6 +266,7 @@ abstract class UnixBuilderBase extends BuilderBase
 
     protected function buildFrankenphp(): void
     {
+        GlobalEnvManager::addPathIfNotExists(GoXcaddy::getEnvironment()['PATH']);
         $nobrotli = $this->getLib('brotli') === null ? ',nobrotli' : '';
         $nowatcher = $this->getLib('watcher') === null ? ',nowatcher' : '';
         $xcaddyModules = getenv('SPC_CMD_VAR_FRANKENPHP_XCADDY_MODULES');
@@ -268,12 +278,8 @@ abstract class UnixBuilderBase extends BuilderBase
             logger()->warning('caddy-cbrotli module is enabled, but brotli library is not built. Disabling caddy-cbrotli.');
             $xcaddyModules = str_replace('--with github.com/dunglas/caddy-cbrotli', '', $xcaddyModules);
         }
-        $releaseInfo = json_decode(Downloader::curlExec(
-            'https://api.github.com/repos/php/frankenphp/releases/latest',
-            hooks: [[CurlHook::class, 'setupGithubToken']],
-            retries: 3,
-        ), true);
-        $frankenPhpVersion = $releaseInfo['tag_name'];
+        [, $out] = shell()->execWithResult('go list -m github.com/dunglas/frankenphp@latest');
+        $frankenPhpVersion = str_replace('github.com/dunglas/frankenphp v', '', $out[0]);
         $libphpVersion = $this->getPHPVersion();
         $dynamic_exports = '';
         if (getenv('SPC_CMD_VAR_PHP_EMBED_TYPE') === 'shared') {
@@ -316,9 +322,7 @@ abstract class UnixBuilderBase extends BuilderBase
             'LD_LIBRARY_PATH' => BUILD_LIB_PATH,
         ];
         foreach (GoXcaddy::getEnvironment() as $key => $value) {
-            if ($key === 'PATH') {
-                GlobalEnvManager::addPathIfNotExists($value);
-            } else {
+            if ($key !== 'PATH') {
                 $env[$key] = $value;
             }
         }
