@@ -95,6 +95,8 @@ class LinuxBuilder extends UnixBuilderBase
             // 'LIBS' => SPCTarget::getRuntimeLibs(), // do not pass static libraries here yet, they may contain polyfills for libc functions!
         ]);
 
+        $phpvars = getenv('SPC_EXTRA_PHP_VARS') ?: '';
+
         $embed_type = getenv('SPC_CMD_VAR_PHP_EMBED_TYPE') ?: 'static';
         if ($embed_type !== 'static' && SPCTarget::isStatic()) {
             throw new WrongUsageException(
@@ -116,6 +118,7 @@ class LinuxBuilder extends UnixBuilderBase
                 $json_74 .
                 $zts .
                 $maxExecutionTimers .
+                "{$phpvars} " .
                 $this->makeStaticExtensionArgs() . ' '
         ));
 
@@ -153,7 +156,14 @@ class LinuxBuilder extends UnixBuilderBase
         }
         $shared_extensions = array_map('trim', array_filter(explode(',', $this->getOption('build-shared'))));
         if (!empty($shared_extensions)) {
-            logger()->info('Building shared extensions ...');
+            if (SPCTarget::isStatic()) {
+                throw new WrongUsageException(
+                    "You're building against musl libc statically (the default on Linux), but you're trying to build shared extensions.\n" .
+                    'Static musl libc does not implement `dlopen`, so your php binary is not able to load shared extensions.' . "\n" .
+                    'Either use SPC_LIBC=glibc to link against glibc on a glibc OS, or use SPC_TARGET="native-native-musl -dynamic" to link against musl libc dynamically using `zig cc`.'
+                );
+            }
+            logger()->info('Building shared extensions...');
             $this->buildSharedExts();
         }
     }
@@ -169,11 +179,18 @@ class LinuxBuilder extends UnixBuilderBase
      */
     protected function buildCli(): void
     {
+        if ($this->getExt('readline')) {
+            SourcePatcher::patchFile('musl_static_readline.patch', SOURCE_PATH . '/php-src');
+        }
         $vars = SystemUtil::makeEnvVarString($this->getMakeExtraVars());
         $SPC_CMD_PREFIX_PHP_MAKE = getenv('SPC_CMD_PREFIX_PHP_MAKE') ?: 'make';
         shell()->cd(SOURCE_PATH . '/php-src')
             ->exec('sed -i "s|//lib|/lib|g" Makefile')
             ->exec("{$SPC_CMD_PREFIX_PHP_MAKE} {$vars} cli");
+
+        if ($this->getExt('readline')) {
+            SourcePatcher::patchFile('musl_static_readline.patch', SOURCE_PATH . '/php-src', true);
+        }
 
         if (!$this->getOption('no-strip', false)) {
             shell()->cd(SOURCE_PATH . '/php-src/sapi/cli')->exec('strip --strip-unneeded php');

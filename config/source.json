@@ -324,7 +324,7 @@
     },
     "grpc": {
         "type": "git",
-        "rev": "v1.68.x",
+        "rev": "v1.75.x",
         "url": "https://github.com/grpc/grpc.git",
         "provide-pre-built": true,
         "license": {
@@ -880,7 +880,7 @@
     "postgresql": {
         "type": "ghtagtar",
         "repo": "postgres/postgres",
-        "match": "REL_16_\\d+",
+        "match": "REL_18_\\d+",
         "license": {
             "type": "file",
             "path": "COPYRIGHT"
