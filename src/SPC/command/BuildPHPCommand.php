@@ -33,7 +33,7 @@ class BuildPHPCommand extends BuildCommand
         $this->addOption('build-fpm', null, null, 'Build fpm SAPI (not available on Windows)');
         $this->addOption('build-embed', null, null, 'Build embed SAPI (not available on Windows)');
         $this->addOption('build-frankenphp', null, null, 'Build FrankenPHP SAPI (not available on Windows)');
-        $this->addOption('build-cgi', null, null, 'Build cgi SAPI (not available on Windows)');
+        $this->addOption('build-cgi', null, null, 'Build cgi SAPI');
         $this->addOption('build-all', null, null, 'Build all SAPI');
         $this->addOption('no-strip', null, null, 'build without strip, keep symbols to debug');
         $this->addOption('disable-opcache-jit', null, null, 'disable opcache jit');
@@ -222,11 +222,9 @@ class BuildPHPCommand extends BuildCommand
 
         // ---------- When using bin/spc-alpine-docker, the build root path is different from the host system ----------
         $build_root_path = BUILD_ROOT_PATH;
-        $cwd = getcwd();
         $fixed = '';
+        $build_root_path = get_display_path($build_root_path);
         if (!empty(getenv('SPC_FIX_DEPLOY_ROOT'))) {
-            str_replace($cwd, '', $build_root_path);
-            $build_root_path = getenv('SPC_FIX_DEPLOY_ROOT') . '/' . basename($build_root_path);
             $fixed = ' (host system)';
         }
         if (($rule & BUILD_TARGET_CLI) === BUILD_TARGET_CLI) {

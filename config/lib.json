@@ -203,7 +203,6 @@
             "libcares"
         ],
         "cpp-library": true,
-        "provide-pre-built": true,
         "frameworks": [
             "CoreFoundation"
         ]
@@ -344,6 +343,15 @@
             "libde265.a"
         ],
         "cpp-library": true
+    },
+    "libedit": {
+        "source": "libedit",
+        "static-libs-unix": [
+            "libedit.a"
+        ],
+        "lib-depends": [
+            "ncurses"
+        ]
     },
     "libevent": {
         "source": "libevent",
@@ -551,6 +559,21 @@
             "zstd"
         ]
     },
+    "liburing": {
+        "source": "liburing",
+        "pkg-configs": [
+            "liburing",
+            "liburing-ffi"
+        ],
+        "static-libs-linux": [
+            "liburing.a",
+            "liburing-ffi.a"
+        ],
+        "headers-linux": [
+            "liburing/",
+            "liburing.h"
+        ]
+    },
     "libuuid": {
         "source": "libuuid",
         "static-libs-unix": [
@@ -584,8 +607,8 @@
     },
     "libxml2": {
         "source": "libxml2",
-        "static-libs-unix": [
-            "libxml2.a"
+        "pkg-configs": [
+            "libxml-2.0"
         ],
         "static-libs-windows": [
             "libxml2s.lib",
@@ -672,6 +695,17 @@
         "source": "ncurses",
         "static-libs-unix": [
             "libncurses.a"
+        ]
+    },
+    "net-snmp": {
+        "source": "net-snmp",
+        "pkg-configs": [
+            "netsnmp",
+            "netsnmp-agent"
+        ],
+        "lib-depends": [
+            "openssl",
+            "zlib"
         ]
     },
     "nghttp2": {
@@ -772,7 +806,7 @@
             "libxml2",
             "openssl",
             "zlib",
-            "readline"
+            "libedit"
         ],
         "lib-suggests": [
             "icu",
@@ -930,21 +964,6 @@
         "headers-windows": [
             "zstd.h",
             "zstd_errors.h"
-        ]
-    },
-    "liburing": {
-        "source": "liburing",
-        "pkg-configs": [
-            "liburing",
-            "liburing-ffi"
-        ],
-        "static-libs-linux": [
-            "liburing.a",
-            "liburing-ffi.a"
-        ],
-        "headers-linux": [
-            "liburing/",
-            "liburing.h"
         ]
     }
 }
