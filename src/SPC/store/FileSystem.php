@@ -174,6 +174,9 @@ class FileSystem
         logger()->debug("Copying file from {$from} to {$to}");
         $dst_path = FileSystem::convertPath($to);
         $src_path = FileSystem::convertPath($from);
+        if ($src_path === $dst_path) {
+            return;
+        }
         if (!copy($src_path, $dst_path)) {
             throw new FileSystemException('Cannot copy file from ' . $src_path . ' to ' . $dst_path);
         }
@@ -657,11 +660,19 @@ class FileSystem
         $source = self::convertPath($source);
         $dest = self::convertPath($dest);
 
-        // Try rename first (fast, atomic)
-        if (@rename($source, $dest)) {
-            return;
+        // Check if source and dest are on the same device to avoid cross-device rename errors
+        $source_stat = @stat($source);
+        $dest_parent = dirname($dest);
+        $dest_stat = @stat($dest_parent);
+
+        // Only use rename if on same device
+        if ($source_stat !== false && $dest_stat !== false && $source_stat['dev'] === $dest_stat['dev']) {
+            if (@rename($source, $dest)) {
+                return;
+            }
         }
 
+        // Fall back to copy + delete for cross-device moves or if rename failed
         if (is_dir($source)) {
             self::copyDir($source, $dest);
             self::removeDir($source);

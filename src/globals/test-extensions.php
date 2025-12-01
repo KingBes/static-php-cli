@@ -35,7 +35,7 @@ $test_os = [
 ];
 
 // whether enable thread safe
-$zts = true;
+$zts = false;
 
 $no_strip = false;
 
@@ -50,8 +50,8 @@ $prefer_pre_built = false;
 
 // If you want to test your added extensions and libs, add below (comma separated, example `bcmath,openssl`).
 $extensions = match (PHP_OS_FAMILY) {
-    'Linux', 'Darwin' => 'trader',
-    'Windows' => 'bcmath,bz2,calendar,ctype,curl,dba,dom,exif,ffi,fileinfo,filter,ftp,iconv,libxml,mbregex,mbstring,mysqli,mysqlnd,opcache,openssl,pdo,pdo_mysql,pdo_sqlite,pdo_sqlsrv,phar,session,shmop,simdjson,simplexml,soap,sockets,sqlite3,sqlsrv,ssh2,sysvshm,tokenizer,xml,xmlreader,xmlwriter,yaml,zip,zlib',
+    'Linux', 'Darwin' => 'maxminddb',
+    'Windows' => 'bcmath',
 };
 
 // If you want to test shared extensions, add them below (comma separated, example `bcmath,openssl`).
@@ -74,7 +74,7 @@ $with_libs = match (PHP_OS_FAMILY) {
 // You can use `common`, `bulk`, `minimal` or `none`.
 // note: combination is only available for *nix platform. Windows must use `none` combination
 $base_combination = match (PHP_OS_FAMILY) {
-    'Linux', 'Darwin' => 'none',
+    'Linux', 'Darwin' => 'minimal',
     'Windows' => 'none',
 };
 

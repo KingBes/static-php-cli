@@ -184,6 +184,15 @@
             ]
         }
     },
+    "ext-maxminddb": {
+        "type": "url",
+        "url": "https://pecl.php.net/get/maxminddb",
+        "filename": "ext-maxminddb.tgz",
+        "license": {
+            "type": "file",
+            "path": "LICENSE"
+        }
+    },
     "ext-memcache": {
         "type": "url",
         "url": "https://pecl.php.net/get/memcache",
@@ -301,10 +310,19 @@
             "path": "LICENSE.MIT"
         }
     },
+    "frankenphp": {
+        "type": "ghtar",
+        "repo": "php/frankenphp",
+        "prefer-stable": true,
+        "license": {
+            "type": "file",
+            "path": "LICENSE"
+        }
+    },
     "freetype": {
-        "type": "git",
-        "rev": "VER-2-13-2",
-        "url": "https://github.com/freetype/freetype",
+        "type": "ghtagtar",
+        "repo": "freetype/freetype",
+        "match": "VER-2-\\d+-\\d+",
         "license": {
             "type": "file",
             "path": "LICENSE.TXT"
@@ -419,6 +437,16 @@
         "license": {
             "type": "file",
             "path": "COPYING"
+        }
+    },
+    "krb5": {
+        "type": "ghtagtar",
+        "repo": "krb5/krb5",
+        "match": "krb5.+-final",
+        "prefer-stable": true,
+        "license": {
+            "type": "file",
+            "path": "NOTICE"
         }
     },
     "ldap": {
@@ -579,6 +607,15 @@
             "path": "source/COPYING"
         }
     },
+    "libidn2": {
+        "type": "filelist",
+        "url": "https://ftp.gnu.org/gnu/libidn/",
+        "regex": "/href=\"(?<file>libidn2-(?<version>[^\"]+)\\.tar\\.gz)\"/",
+        "license": {
+            "type": "file",
+            "path": "COPYING.LESSERv3"
+        }
+    },
     "libjpeg": {
         "type": "ghtar",
         "repo": "libjpeg-turbo/libjpeg-turbo",
@@ -608,6 +645,16 @@
         "match": "lz4-.+\\.tar\\.gz",
         "prefer-stable": true,
         "provide-pre-built": true,
+        "license": {
+            "type": "file",
+            "path": "LICENSE"
+        }
+    },
+    "libmaxminddb": {
+        "type": "ghrel",
+        "repo": "maxmind/libmaxminddb",
+        "match": "libmaxminddb-.+\\.tar\\.gz",
+        "prefer-stable": true,
         "license": {
             "type": "file",
             "path": "LICENSE"
@@ -680,6 +727,16 @@
             "path": "LICENSE.md"
         }
     },
+    "libunistring": {
+        "type": "filelist",
+        "url": "https://ftp.gnu.org/gnu/libunistring/",
+        "regex": "/href=\"(?<file>libunistring-(?<version>[^\"]+)\\.tar\\.gz)\"/",
+        "provide-pre-built": true,
+        "license": {
+            "type": "file",
+            "path": "COPYING.LIB"
+        }
+    },
     "liburing": {
         "type": "ghtar",
         "repo": "axboe/liburing",
@@ -693,6 +750,7 @@
         "type": "git",
         "url": "https://github.com/static-php/libuuid.git",
         "rev": "master",
+        "provide-pre-built": true,
         "license": {
             "type": "file",
             "path": "COPYING"
